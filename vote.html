@@ -48,6 +48,53 @@
     /* ── Preload shimmer ─────────────────────────────────────────────── */
     @keyframes preloadPulse { 0%,100%{opacity:.5} 50%{opacity:1} }
     #preload-indicator { animation:preloadPulse 1.2s ease infinite; }
+
+    /* ── Winner / loser fly animations ──────────────────────────────── */
+    @keyframes flyWin {
+      0%   { transform:scale(1); }
+      40%  { transform:scale(1.07) translateY(-6px); box-shadow:0 0 50px rgba(34,197,94,.45); }
+      100% { transform:scale(1); }
+    }
+    @keyframes flyLose {
+      0%   { transform:scale(1); opacity:1; }
+      100% { transform:scale(.9); opacity:.35; filter:grayscale(.6); }
+    }
+    .winner-anim { animation:flyWin .75s ease forwards; cursor:default; pointer-events:none; }
+    .loser-anim  { animation:flyLose .75s ease forwards; cursor:default; pointer-events:none; }
+
+    /* ── Confetti ────────────────────────────────────────────────────── */
+    .confetti-piece {
+      position:fixed; pointer-events:none; z-index:999; border-radius:2px;
+      animation: cfFall var(--dur,1s) ease-out var(--delay,0s) forwards;
+    }
+    @keyframes cfFall {
+      0%   { transform:translateY(0) rotate(0deg) scale(1); opacity:1; }
+      100% { transform:translateY(var(--fall,200px)) rotate(var(--spin,360deg)) scale(0.5); opacity:0; }
+    }
+
+    /* ── Rank reveal panel ───────────────────────────────────────────── */
+    #rank-reveal {
+      position:fixed; bottom:0; left:0; right:0; z-index:300;
+      transform:translateY(110%);
+      transition:transform .38s cubic-bezier(.34,1.5,.64,1);
+      padding:0 0 env(safe-area-inset-bottom);
+    }
+    #rank-reveal.show { transform:translateY(0); }
+
+    /* ── Daily progress bar ──────────────────────────────────────────── */
+    .daily-bar-track { height:5px; background:var(--surface); border-radius:999px; width:100px; overflow:hidden; }
+    .daily-bar-fill  { height:100%; background:linear-gradient(90deg,#9B0000,#C1272D); border-radius:999px; transition:width .4s; }
+
+    /* ── Milestone toast ─────────────────────────────────────────────── */
+    #milestone-toast {
+      position:fixed; top:80px; left:50%; transform:translateX(-50%) translateY(-80px);
+      z-index:400; background:linear-gradient(135deg,#9B0000,#C1272D);
+      border-radius:999px; padding:10px 24px; font-size:15px; font-weight:700;
+      white-space:nowrap; pointer-events:none;
+      transition:transform .35s cubic-bezier(.34,1.56,.64,1), opacity .3s;
+      opacity:0;
+    }
+    #milestone-toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
   </style>
 </head>
 <body>
@@ -81,9 +128,26 @@
   <div id="rate-limit" style="display:none;min-height:calc(100vh - 60px);align-items:center;justify-content:center;padding:40px 24px;">
     <div class="glass-card" style="max-width:400px;padding:48px 40px;text-align:center;">
       <div style="font-size:52px;margin-bottom:16px;">⏱</div>
-      <h2 style="font-size:22px;font-weight:800;margin-bottom:10px;">You're voting too fast!</h2>
-      <p style="color:var(--muted);line-height:1.7;font-size:15px;margin-bottom:28px;">100 votes per hour limit reached. Come back soon.</p>
+      <h2 style="font-size:22px;font-weight:800;margin-bottom:10px;">Slow down!</h2>
+      <p style="color:var(--muted);line-height:1.7;font-size:15px;margin-bottom:28px;">100 votes per hour limit reached. Take a breather.</p>
       <a href="leaderboard.html" class="btn-ghost" style="display:inline-block;text-decoration:none;">View Leaderboard</a>
+    </div>
+  </div>
+
+  <!-- Daily limit -->
+  <div id="daily-limit" style="display:none;min-height:calc(100vh - 60px);align-items:center;justify-content:center;padding:40px 24px;">
+    <div class="glass-card" style="max-width:400px;padding:48px 40px;text-align:center;">
+      <div style="font-size:56px;margin-bottom:16px;">🔥</div>
+      <h2 style="font-size:24px;font-weight:800;margin-bottom:10px;">You crushed it today!</h2>
+      <p style="color:var(--muted);line-height:1.7;font-size:15px;margin-bottom:20px;">You've used all 50 votes for today. Come back tomorrow for more matchups.</p>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 20px;margin-bottom:28px;">
+        <p style="font-size:12px;color:var(--muted);margin-bottom:4px;">Resets in</p>
+        <p id="daily-countdown" style="font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;">00:00:00</p>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+        <a href="leaderboard.html" class="btn-accent" style="text-decoration:none;">View Rankings</a>
+        <a href="discuss.html" class="btn-ghost" style="text-decoration:none;">Campus Feed</a>
+      </div>
     </div>
   </div>
 
@@ -113,14 +177,15 @@
     <!-- Header -->
     <div style="text-align:center;padding:32px 24px 20px;">
       <h1 style="font-size:clamp(20px,4vw,28px);font-weight:800;letter-spacing:-.02em;margin-bottom:10px;">Who looks better?</h1>
-      <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">
-        <span class="vote-counter-pill">
-          <span class="dot"></span>
-          <span id="vote-counter">0 votes this hour</span>
-        </span>
+      <div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:12px;color:var(--muted);font-weight:600;" id="daily-label">0 / 50 today</span>
+          <div class="daily-bar-track"><div class="daily-bar-fill" id="daily-bar" style="width:0%"></div></div>
+        </div>
         <span id="streak-wrap" style="display:none;" class="streak-badge">
-          🔥 <span id="streak-count">0</span> streak
+          🔥 <span id="streak-count">0</span> day streak
         </span>
+        <span id="my-rank-pill" style="display:none;font-size:12px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:4px 12px;font-weight:600;"></span>
       </div>
       <p style="color:var(--muted);font-size:12px;margin-top:8px;">
         <kbd style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;">1</kbd>
@@ -190,6 +255,23 @@
     </div>
   </div>
 
+  <!-- Rank reveal panel -->
+  <div id="rank-reveal">
+    <div style="background:var(--glass-bg);backdrop-filter:blur(20px);border-top:1px solid var(--border);padding:20px 24px 24px;text-align:center;">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:4px;font-weight:500;">Your current rank</p>
+      <div style="display:flex;align-items:center;justify-content:center;gap:16px;">
+        <p id="rank-number" style="font-size:48px;font-weight:900;letter-spacing:-.03em;"></p>
+        <div>
+          <p id="rank-diff" style="font-size:18px;font-weight:700;"></p>
+          <p id="rank-elo" style="font-size:12px;color:var(--muted);margin-top:2px;"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Milestone toast -->
+  <div id="milestone-toast"></div>
+
   <!-- Photo zoom modal -->
   <div id="zoom-modal" class="zoom-modal" style="display:none;" onclick="closeZoom()">
     <img id="zoom-img" src="" alt="" onclick="event.stopPropagation()" />
@@ -229,6 +311,36 @@
     let nextPair  = null    // preloaded [profileA, profileB]
     let preloading = false  // true while background fetch is running
     let allProfiles = []    // cached profile list (refreshed on each foreground fetch)
+    let myRank = null       // current user's rank (fetched after each vote)
+
+    // ── Daily vote tracking ───────────────────────────────────────────────────
+    const DAILY_LIMIT = 50
+    function dailyKey() { return 'mm_daily_' + new Date().toDateString() }
+    function getDailyVotes() { return parseInt(localStorage.getItem(dailyKey()) || '0') }
+    function incDailyVotes() {
+      const n = getDailyVotes() + 1
+      localStorage.setItem(dailyKey(), n)
+      return n
+    }
+    function updateDailyBar() {
+      const n = getDailyVotes()
+      const pct = Math.min(n / DAILY_LIMIT * 100, 100)
+      document.getElementById('daily-bar').style.width = pct + '%'
+      document.getElementById('daily-label').textContent = `${n} / ${DAILY_LIMIT} today`
+    }
+
+    // ── Countdown for daily limit screen ─────────────────────────────────────
+    function startCountdown() {
+      function tick() {
+        const now = new Date(), midnight = new Date()
+        midnight.setHours(24,0,0,0)
+        const diff = midnight - now
+        const h = Math.floor(diff/3600000), m = Math.floor(diff%3600000/60000), s = Math.floor(diff%60000/1000)
+        const el = document.getElementById('daily-countdown')
+        if (el) el.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+      }
+      tick(); setInterval(tick, 1000)
+    }
 
     // ── Offline UI ─────────────────────────────────────────────────────────
     window.addEventListener('offline', () => document.body.classList.add('is-offline'))
@@ -247,14 +359,11 @@
       if (!user) { window.location.href = 'index.html'; return }
       currentUser = user
       flushOfflineQueue()
-      updateCounter()
+      updateDailyBar()
       renderStreak()
+      if (getDailyVotes() >= DAILY_LIMIT) { show('daily-limit'); startCountdown(); return }
       fetchMatchup()
-    }
-
-    function updateCounter() {
-      const n = votesThisHour()
-      document.getElementById('vote-counter').textContent = `${n} vote${n === 1 ? '' : 's'} this hour`
+      fetchMyRank()   // background — shows rank pill in header
     }
 
     function renderStreak() {
@@ -397,6 +506,10 @@
     async function castVote(choice) {
       if (voting) return
       if (!checkRateLimit()) { show('rate-limit'); return }
+
+      const daily = incDailyVotes()
+      updateDailyBar()
+
       voting = true
 
       const winner = choice === 'a' ? profileA : profileB
@@ -421,6 +534,13 @@
         setTimeout(() => badge.classList.remove('streak-new'), 500)
       }
 
+      // Confetti!
+      triggerConfetti()
+
+      // Milestone toasts
+      const milestones = { 1:'First vote! 🎉', 5:'5 votes! 🔥', 10:'10 votes! 💪', 25:'25 votes! 🏆', 50:'50 votes! 👑' }
+      if (milestones[daily]) showMilestone(milestones[daily])
+
       if (isOnline()) {
         const sb = getSupabase()
         const { error: voteErr } = await sb.from('votes').insert({
@@ -439,7 +559,17 @@
       winner.elo_score = winnerNew; winner.vote_count += 1
       loser.elo_score  = loserNew;  loser.vote_count  += 1
 
-      setTimeout(() => { voting = false; fetchMatchup() }, 900)
+      // Show rank reveal, then load next matchup
+      const prevRank = myRank
+      fetchMyRank().then(newRank => {
+        if (newRank) showRankReveal(newRank, prevRank)
+      })
+
+      setTimeout(() => {
+        voting = false
+        if (daily >= DAILY_LIMIT) { show('daily-limit'); startCountdown() }
+        else fetchMatchup()
+      }, 950)
     }
 
     function showDelta(side, delta, win) {
@@ -579,9 +709,76 @@
       else if (e.key==='Escape') closeReport()
     })
 
+    // ── Confetti ──────────────────────────────────────────────────────────────
+    function triggerConfetti() {
+      const colors = ['#9B0000','#C1272D','#FECACA','#ffffff','#FCA5A5','#fbbf24','#f472b6']
+      const cx = window.innerWidth / 2, cy = window.innerHeight / 2
+      for (let i = 0; i < 55; i++) {
+        const el = document.createElement('div')
+        el.className = 'confetti-piece'
+        const angle = (Math.PI * 2 * i) / 55 + (Math.random() - .5) * 0.4
+        const dist  = 80 + Math.random() * 160
+        const x = cx + Math.cos(angle) * dist * (0.4 + Math.random() * 0.6)
+        const y = cy + Math.sin(angle) * dist * (0.4 + Math.random() * 0.6)
+        const size = 6 + Math.random() * 8
+        el.style.cssText = `
+          left:${x}px; top:${y}px;
+          width:${size}px; height:${size}px;
+          background:${colors[Math.floor(Math.random() * colors.length)]};
+          border-radius:${Math.random() > .4 ? '50%' : '2px'};
+          --dur:${0.5 + Math.random() * 0.7}s;
+          --delay:${Math.random() * 0.15}s;
+          --fall:${60 + Math.random() * 160}px;
+          --spin:${-360 + Math.random() * 720}deg;
+        `
+        document.body.appendChild(el)
+        setTimeout(() => el.remove(), 1400)
+      }
+    }
+
+    // ── Rank reveal ───────────────────────────────────────────────────────────
+    async function fetchMyRank() {
+      if (!currentUser) return null
+      const sb = getSupabase()
+      const { data: prof } = await sb.from('profiles').select('elo_score').eq('id', currentUser.id).single()
+      if (!prof) return null
+      const { count } = await sb.from('profiles').select('*', { count:'exact', head:true })
+        .gt('elo_score', prof.elo_score).eq('opted_out', false)
+      const rank = (count ?? 0) + 1
+      myRank = rank
+
+      // Update rank pill in header
+      const pill = document.getElementById('my-rank-pill')
+      pill.textContent = `You: #${rank}`
+      pill.style.display = 'inline-block'
+      return rank
+    }
+
+    function showRankReveal(newRank, prevRank) {
+      document.getElementById('rank-number').textContent = `#${newRank}`
+      const diffEl = document.getElementById('rank-diff')
+      const diff = prevRank ? prevRank - newRank : 0
+      if (diff > 0) { diffEl.textContent = `↑ ${diff} spot${diff>1?'s':''}!`; diffEl.style.color = '#86efac' }
+      else if (diff < 0) { diffEl.textContent = `↓ ${Math.abs(diff)} spot${Math.abs(diff)>1?'s':''}`; diffEl.style.color = '#fca5a5' }
+      else { diffEl.textContent = 'Holding steady'; diffEl.style.color = 'var(--muted)' }
+      document.getElementById('rank-elo').textContent = ''
+
+      const panel = document.getElementById('rank-reveal')
+      panel.classList.add('show')
+      setTimeout(() => panel.classList.remove('show'), 1800)
+    }
+
+    // ── Milestone toast ───────────────────────────────────────────────────────
+    function showMilestone(msg) {
+      const el = document.getElementById('milestone-toast')
+      el.textContent = msg
+      el.classList.add('show')
+      setTimeout(() => el.classList.remove('show'), 2000)
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
     function show(id) {
-      ;['skeleton','rate-limit','error-view','empty-view','vote-view'].forEach(i => {
+      ;['skeleton','rate-limit','daily-limit','error-view','empty-view','vote-view'].forEach(i => {
         document.getElementById(i).style.display = 'none'
       })
       const t = document.getElementById(id)
