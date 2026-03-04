@@ -15,92 +15,175 @@
   <script src="config.js"></script>
   <script src="common.js"></script>
   <style>
-    .vs-badge { width:52px;height:52px;border-radius:50%;background:var(--bg);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;letter-spacing:.05em;color:var(--muted);flex-shrink:0;position:relative;z-index:2; }
-    .key-hint { position:absolute;top:14px;left:14px;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:4px 10px;font-size:12px;font-weight:600;color:rgba(255,255,255,0.45);backdrop-filter:blur(8px); }
-    .vote-counter-pill { display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:4px 14px;font-size:12px;color:var(--muted); }
-    .vote-counter-pill .dot { width:6px;height:6px;border-radius:50%;background:#22c55e;animation:pdot 2s infinite; }
-    @keyframes pdot{0%,100%{opacity:1}50%{opacity:.3}}
-    .modal-backdrop { position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:100;padding:24px;backdrop-filter:blur(4px); }
-    .radio-option { display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1px solid var(--border);cursor:pointer;transition:border-color .15s,background .15s; }
-    .radio-option:hover { border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.04); }
-    .radio-option input { accent-color:#ef4444; }
-    .skip-btn { background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;transition:color .15s,background .15s;padding:8px 16px;border-radius:8px; }
-    .skip-btn:hover { color:var(--text);background:var(--surface); }
-    .skip-btn:disabled { opacity:.35;cursor:not-allowed; }
-    .zoom-trigger { position:absolute;bottom:60px;right:10px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:rgba(255,255,255,0.5);font-size:12px;padding:4px 9px;cursor:pointer;backdrop-filter:blur(4px);transition:color .15s; }
-    .zoom-trigger:hover { color:white; }
+    /* ── Tinder card ─────────────────────────────────────────────────── */
+    .tinder-card {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 3 / 4.2;
+      border-radius: 24px;
+      overflow: hidden;
+      user-select: none;
+      will-change: transform;
+      box-shadow: 0 24px 64px rgba(0,0,0,.55);
+      touch-action: none;
+      background: var(--surface);
+    }
+    .tinder-card-img {
+      width: 100%; height: 100%;
+      object-fit: cover; display: block;
+      pointer-events: none;
+    }
+    .tinder-card-overlay {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,.88));
+      padding: 60px 20px 22px;
+    }
+    .tinder-card-name { font-size: clamp(22px,5vw,30px); font-weight: 800; text-shadow: 0 2px 8px rgba(0,0,0,.5); }
 
-    /* ── Swipe ───────────────────────────────────────────────────────── */
-    .swipe-hint-overlay {
-      position:absolute;inset:0;border-radius:inherit;display:flex;align-items:center;justify-content:center;
-      opacity:0;transition:opacity .1s;pointer-events:none;z-index:5;
+    /* ── Pick overlays ───────────────────────────────────────────────── */
+    .pick-overlay {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 48px; font-weight: 900; opacity: 0;
+      pointer-events: none; border-radius: 24px;
+      letter-spacing: .04em; flex-direction: column; gap: 4px;
     }
-    .swipe-hint-overlay .swipe-label {
-      background:rgba(34,197,94,0.9);color:white;font-size:22px;font-weight:900;
-      letter-spacing:.04em;padding:10px 28px;border-radius:999px;
-      transform:rotate(-8deg);border:2px solid rgba(255,255,255,0.3);
-    }
-    .swipe-hint-overlay.swipe-reject .swipe-label {
-      background:rgba(239,68,68,0.85);transform:rotate(8deg);
-    }
-    .vote-card-wrap { transition:transform .12s ease, box-shadow .12s ease; }
+    .pick-overlay span { font-size: 16px; font-weight: 700; letter-spacing: .1em; }
+    .pick-yes { background: rgba(34,197,94,.2); border: 4px solid #22c55e; color: #86efac; }
+    .pick-no  { background: rgba(239,68,68,.2); border: 4px solid #ef4444; color: #fca5a5; }
 
-    /* ── Preload shimmer ─────────────────────────────────────────────── */
-    @keyframes preloadPulse { 0%,100%{opacity:.5} 50%{opacity:1} }
-    #preload-indicator { animation:preloadPulse 1.2s ease infinite; }
+    /* ── Challenger bubble ───────────────────────────────────────────── */
+    #challenger-wrap {
+      position: absolute; top: -10px; right: -10px; z-index: 10;
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,.5));
+    }
+    #challenger-wrap img {
+      width: 68px; height: 68px; border-radius: 14px;
+      object-fit: cover; border: 2.5px solid rgba(255,255,255,.2);
+      display: block;
+    }
+    .vs-pill {
+      position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 999px; padding: 1px 7px;
+      font-size: 9px; font-weight: 800; color: var(--muted);
+      white-space: nowrap;
+    }
+    .challenger-name-tag {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: rgba(0,0,0,.75); border-radius: 0 0 12px 12px;
+      padding: 3px 4px; font-size: 9px; font-weight: 700;
+      text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
 
-    /* ── Winner / loser fly animations ──────────────────────────────── */
-    @keyframes flyWin {
-      0%   { transform:scale(1); }
-      40%  { transform:scale(1.07) translateY(-6px); box-shadow:0 0 50px rgba(34,197,94,.45); }
-      100% { transform:scale(1); }
+    /* ── Action buttons ──────────────────────────────────────────────── */
+    .action-row { display: flex; align-items: center; justify-content: center; gap: 20px; padding: 20px 24px 48px; }
+    .action-btn {
+      border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform .12s, box-shadow .12s;
+      -webkit-tap-highlight-color: transparent;
     }
-    @keyframes flyLose {
-      0%   { transform:scale(1); opacity:1; }
-      100% { transform:scale(.9); opacity:.35; filter:grayscale(.6); }
+    .action-btn:active { transform: scale(.88); }
+    .btn-pass {
+      width: 64px; height: 64px; border-radius: 50%; font-size: 28px;
+      background: rgba(239,68,68,.12); border: 2px solid rgba(239,68,68,.35);
+      color: #fca5a5; box-shadow: 0 4px 24px rgba(239,68,68,.15);
     }
-    .winner-anim { animation:flyWin .75s ease forwards; cursor:default; pointer-events:none; }
-    .loser-anim  { animation:flyLose .75s ease forwards; cursor:default; pointer-events:none; }
+    .btn-pass:hover { background: rgba(239,68,68,.22); box-shadow: 0 4px 32px rgba(239,68,68,.3); }
+    .btn-hot {
+      width: 72px; height: 72px; border-radius: 50%; font-size: 32px;
+      background: linear-gradient(135deg, rgba(155,0,0,.25), rgba(193,39,45,.25));
+      border: 2px solid rgba(155,0,0,.5);
+      color: #FECACA; box-shadow: 0 4px 28px rgba(155,0,0,.25);
+    }
+    .btn-hot:hover { box-shadow: 0 4px 40px rgba(155,0,0,.45); }
+    .btn-skip {
+      width: 50px; height: 50px; border-radius: 50%; font-size: 20px;
+      background: var(--surface); border: 2px solid var(--border); color: var(--muted);
+    }
 
-    /* ── Confetti ────────────────────────────────────────────────────── */
-    .confetti-piece {
-      position:fixed; pointer-events:none; z-index:999; border-radius:2px;
-      animation: cfFall var(--dur,1s) ease-out var(--delay,0s) forwards;
-    }
-    @keyframes cfFall {
-      0%   { transform:translateY(0) rotate(0deg) scale(1); opacity:1; }
-      100% { transform:translateY(var(--fall,200px)) rotate(var(--spin,360deg)) scale(0.5); opacity:0; }
-    }
+    /* ── Card fly animations ─────────────────────────────────────────── */
+    @keyframes flyRight { to { transform: translateX(130%) rotate(25deg); opacity: 0; } }
+    @keyframes flyLeft  { to { transform: translateX(-130%) rotate(-25deg); opacity: 0; } }
+    @keyframes slideIn  { from { transform: scale(.92) translateY(20px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+    .fly-right { animation: flyRight .38s ease-out forwards; pointer-events: none; }
+    .fly-left  { animation: flyLeft  .38s ease-out forwards; pointer-events: none; }
+    .slide-in  { animation: slideIn .32s ease-out forwards; }
+
+    /* ── Daily bar ───────────────────────────────────────────────────── */
+    .daily-bar-track { height: 5px; background: var(--surface); border-radius: 999px; width: 100px; overflow: hidden; }
+    .daily-bar-fill  { height: 100%; background: linear-gradient(90deg,#9B0000,#C1272D); border-radius: 999px; transition: width .4s; }
 
     /* ── Rank reveal panel ───────────────────────────────────────────── */
     #rank-reveal {
-      position:fixed; bottom:0; left:0; right:0; z-index:300;
-      transform:translateY(110%);
-      transition:transform .38s cubic-bezier(.34,1.5,.64,1);
-      padding:0 0 env(safe-area-inset-bottom);
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 300;
+      transform: translateY(110%);
+      transition: transform .38s cubic-bezier(.34,1.5,.64,1);
+      padding-bottom: env(safe-area-inset-bottom);
     }
-    #rank-reveal.show { transform:translateY(0); }
+    #rank-reveal.show { transform: translateY(0); }
 
-    /* ── Daily progress bar ──────────────────────────────────────────── */
-    .daily-bar-track { height:5px; background:var(--surface); border-radius:999px; width:100px; overflow:hidden; }
-    .daily-bar-fill  { height:100%; background:linear-gradient(90deg,#9B0000,#C1272D); border-radius:999px; transition:width .4s; }
+    /* ── Voted-on alert ──────────────────────────────────────────────── */
+    #voted-alert {
+      position: fixed; top: 74px; left: 50%; transform: translateX(-50%) translateY(-80px);
+      z-index: 400; background: linear-gradient(135deg,rgba(30,30,30,.95),rgba(20,20,20,.95));
+      border: 1px solid rgba(155,0,0,.4); border-radius: 999px;
+      padding: 10px 20px; font-size: 14px; font-weight: 600;
+      white-space: nowrap; display: flex; align-items: center; gap: 10px;
+      backdrop-filter: blur(16px);
+      transition: transform .35s cubic-bezier(.34,1.56,.64,1), opacity .3s;
+      opacity: 0; pointer-events: none;
+    }
+    #voted-alert.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
     /* ── Milestone toast ─────────────────────────────────────────────── */
     #milestone-toast {
-      position:fixed; top:80px; left:50%; transform:translateX(-50%) translateY(-80px);
-      z-index:400; background:linear-gradient(135deg,#9B0000,#C1272D);
-      border-radius:999px; padding:10px 24px; font-size:15px; font-weight:700;
-      white-space:nowrap; pointer-events:none;
-      transition:transform .35s cubic-bezier(.34,1.56,.64,1), opacity .3s;
-      opacity:0;
+      position: fixed; top: 74px; left: 50%; transform: translateX(-50%) translateY(-80px);
+      z-index: 401; background: linear-gradient(135deg,#9B0000,#C1272D);
+      border-radius: 999px; padding: 10px 24px; font-size: 15px; font-weight: 700;
+      white-space: nowrap; pointer-events: none;
+      transition: transform .35s cubic-bezier(.34,1.56,.64,1), opacity .3s; opacity: 0;
     }
-    #milestone-toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+    #milestone-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+    /* ── Confetti ────────────────────────────────────────────────────── */
+    .confetti-piece {
+      position: fixed; pointer-events: none; z-index: 999; border-radius: 2px;
+      animation: cfFall var(--dur,1s) ease-out var(--delay,0s) forwards;
+    }
+    @keyframes cfFall {
+      0%   { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+      100% { transform: translateY(var(--fall,200px)) rotate(var(--spin,360deg)) scale(.5); opacity: 0; }
+    }
+
+    /* ── Modals ──────────────────────────────────────────────────────── */
+    .modal-backdrop { position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:100;padding:24px;backdrop-filter:blur(4px); }
+    .radio-option { display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1px solid var(--border);cursor:pointer;transition:border-color .15s,background .15s; }
+    .radio-option:hover { border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.04); }
+    .radio-option input { accent-color:#ef4444; }
+
+    /* ── "Almost there" rank tease ───────────────────────────────────── */
+    #rank-tease {
+      font-size: 12px; color: var(--muted); text-align: center;
+      padding: 4px 16px; min-height: 18px;
+    }
+    #rank-tease strong { color: #FECACA; }
   </style>
 </head>
 <body>
 
   <!-- Offline banner -->
   <div id="offline-banner">📵 Offline — votes will sync when you reconnect</div>
+
+  <!-- "You were voted on" alert -->
+  <div id="voted-alert">
+    <span id="voted-alert-icon">👀</span>
+    <span id="voted-alert-text">Someone just voted on your photo!</span>
+  </div>
+
+  <!-- Milestone toast -->
+  <div id="milestone-toast"></div>
 
   <!-- Nav -->
   <nav class="glass-nav">
@@ -116,11 +199,14 @@
   </nav>
 
   <!-- Skeleton -->
-  <div id="skeleton" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 60px);padding:40px 24px;gap:32px;">
-    <div style="display:flex;gap:12px;width:100%;max-width:760px;justify-content:center;align-items:center;">
-      <div class="skeleton" style="flex:1;max-width:340px;aspect-ratio:3/4;border-radius:24px;"></div>
-      <div class="vs-badge">VS</div>
-      <div class="skeleton" style="flex:1;max-width:340px;aspect-ratio:3/4;border-radius:24px;"></div>
+  <div id="skeleton" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 60px);padding:40px 24px;gap:24px;">
+    <div style="width:100%;max-width:360px;">
+      <div class="skeleton" style="width:100%;aspect-ratio:3/4.2;border-radius:24px;"></div>
+    </div>
+    <div style="display:flex;gap:20px;">
+      <div class="skeleton" style="width:64px;height:64px;border-radius:50%;"></div>
+      <div class="skeleton" style="width:72px;height:72px;border-radius:50%;"></div>
+      <div class="skeleton" style="width:64px;height:64px;border-radius:50%;"></div>
     </div>
   </div>
 
@@ -129,7 +215,7 @@
     <div class="glass-card" style="max-width:400px;padding:48px 40px;text-align:center;">
       <div style="font-size:52px;margin-bottom:16px;">⏱</div>
       <h2 style="font-size:22px;font-weight:800;margin-bottom:10px;">Slow down!</h2>
-      <p style="color:var(--muted);line-height:1.7;font-size:15px;margin-bottom:28px;">100 votes per hour limit reached. Take a breather.</p>
+      <p style="color:var(--muted);line-height:1.7;font-size:15px;margin-bottom:28px;">100 votes per hour limit. Take a breather.</p>
       <a href="leaderboard.html" class="btn-ghost" style="display:inline-block;text-decoration:none;">View Leaderboard</a>
     </div>
   </div>
@@ -139,7 +225,7 @@
     <div class="glass-card" style="max-width:400px;padding:48px 40px;text-align:center;">
       <div style="font-size:56px;margin-bottom:16px;">🔥</div>
       <h2 style="font-size:24px;font-weight:800;margin-bottom:10px;">You crushed it today!</h2>
-      <p style="color:var(--muted);line-height:1.7;font-size:15px;margin-bottom:20px;">You've used all 50 votes for today. Come back tomorrow for more matchups.</p>
+      <p style="color:var(--muted);line-height:1.7;font-size:15px;margin-bottom:20px;">50 votes used. Come back tomorrow for more matchups.</p>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 20px;margin-bottom:28px;">
         <p style="font-size:12px;color:var(--muted);margin-bottom:4px;">Resets in</p>
         <p id="daily-countdown" style="font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;">00:00:00</p>
@@ -165,112 +251,98 @@
   <div id="empty-view" style="display:none;min-height:calc(100vh - 60px);align-items:center;justify-content:center;padding:40px 24px;flex-direction:column;gap:16px;text-align:center;">
     <div style="font-size:52px;">🎉</div>
     <h2 style="font-size:22px;font-weight:800;">You've seen everyone!</h2>
-    <p style="color:var(--muted);max-width:340px;line-height:1.7;font-size:15px;">You've voted on all available matchups. Invite friends to unlock more!</p>
+    <p style="color:var(--muted);max-width:340px;line-height:1.7;font-size:15px;">Invite friends to unlock more matchups!</p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:8px;">
       <button onclick="copyInvite()" class="btn-accent" id="invite-copy-btn">📋 Copy Invite Link</button>
       <a href="leaderboard.html" class="btn-ghost" style="text-decoration:none;">Leaderboard</a>
     </div>
   </div>
 
-  <!-- Vote UI -->
+  <!-- ── Vote UI – Tinder style ──────────────────────────────────────── -->
   <div id="vote-view" style="display:none;">
+
     <!-- Header -->
-    <div style="text-align:center;padding:32px 24px 20px;">
-      <h1 style="font-size:clamp(20px,4vw,28px);font-weight:800;letter-spacing:-.02em;margin-bottom:10px;">Who looks better?</h1>
-      <div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;">
+    <div style="text-align:center;padding:24px 24px 14px;">
+      <h1 style="font-size:clamp(18px,4vw,24px);font-weight:800;letter-spacing:-.02em;margin-bottom:12px;">Who looks better?</h1>
+      <div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:6px;">
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="font-size:12px;color:var(--muted);font-weight:600;" id="daily-label">0 / 50 today</span>
           <div class="daily-bar-track"><div class="daily-bar-fill" id="daily-bar" style="width:0%"></div></div>
         </div>
-        <span id="streak-wrap" style="display:none;" class="streak-badge">
-          🔥 <span id="streak-count">0</span> day streak
-        </span>
+        <span id="streak-wrap" style="display:none;" class="streak-badge">🔥 <span id="streak-count">0</span> day streak</span>
         <span id="my-rank-pill" style="display:none;font-size:12px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:4px 12px;font-weight:600;"></span>
       </div>
-      <p style="color:var(--muted);font-size:12px;margin-top:8px;">
-        <kbd style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;">1</kbd>
-        <kbd style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;">2</kbd> vote ·
-        <kbd style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;">S</kbd> skip ·
-        <kbd style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;">Z</kbd> zoom
-      </p>
+      <p id="rank-tease"></p>
     </div>
 
-    <!-- Cards -->
-    <div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:0 24px;max-width:800px;margin:0 auto;">
+    <!-- Card -->
+    <div style="display:flex;justify-content:center;padding:0 24px;">
+      <div style="position:relative;width:100%;max-width:360px;">
 
-      <!-- Card A -->
-      <div class="vote-card-wrap card-in" id="wrap-a" onclick="castVote('a')">
-        <img id="photo-a" class="vote-card-img" src="" alt="" />
-        <div class="vote-card-overlay">
-          <div style="font-size:20px;font-weight:800;text-shadow:0 2px 8px rgba(0,0,0,0.5);" id="name-a"></div>
-          <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
-            <span style="font-size:12px;color:rgba(255,255,255,0.6);" id="elo-a"></span>
-            <span id="tier-a"></span>
+        <!-- Main tinder card -->
+        <div id="tinder-card" class="tinder-card slide-in">
+          <img id="card-photo" class="tinder-card-img" src="" alt="" />
+          <div class="tinder-card-overlay">
+            <div class="tinder-card-name" id="card-name"></div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+              <span style="font-size:13px;color:rgba(255,255,255,.6);" id="card-elo"></span>
+              <span id="card-tier"></span>
+            </div>
+            <div id="card-cats" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;"></div>
           </div>
-          <div id="cats-a" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;"></div>
+          <!-- Pick overlays -->
+          <div id="pick-yes" class="pick-overlay pick-yes">❤️<span>HOT</span></div>
+          <div id="pick-no"  class="pick-overlay pick-no">✕<span>PASS</span></div>
+          <!-- Buttons on card -->
+          <button onclick="event.stopPropagation();openZoom()" title="Zoom"
+            style="position:absolute;bottom:80px;right:12px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.5);font-size:12px;padding:5px 9px;cursor:pointer;backdrop-filter:blur(4px);">🔍</button>
+          <button onclick="event.stopPropagation();openReport()" title="Report"
+            style="position:absolute;top:14px;left:14px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.4);font-size:14px;padding:5px 8px;cursor:pointer;backdrop-filter:blur(4px);transition:color .15s;"
+            onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='rgba(255,255,255,.4)'">⚑</button>
         </div>
-        <div class="vote-choose-hint">
-          <span style="background:rgba(255,255,255,0.15);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.2);border-radius:999px;padding:10px 24px;font-weight:700;font-size:15px;">Choose</span>
-        </div>
-        <div id="swipe-overlay-a" class="swipe-hint-overlay"><span class="swipe-label">PICK</span></div>
-        <div class="key-hint">1</div>
-        <button class="zoom-trigger" onclick="event.stopPropagation();openZoom('a')" title="Zoom (Z)">🔍</button>
-        <button onclick="event.stopPropagation();openReport('a')" title="Report"
-          style="position:absolute;top:14px;right:14px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:rgba(255,255,255,0.4);font-size:14px;padding:5px 8px;cursor:pointer;backdrop-filter:blur(4px);transition:color .15s,background .15s;"
-          onmouseover="this.style.color='#f87171';this.style.background='rgba(239,68,68,0.2)'"
-          onmouseout="this.style.color='rgba(255,255,255,0.4)';this.style.background='rgba(0,0,0,0.5)'">⚑</button>
-        <div id="delta-a" style="display:none;position:absolute;top:56px;right:14px;"></div>
-      </div>
 
-      <div class="vs-badge">VS</div>
-
-      <!-- Card B -->
-      <div class="vote-card-wrap card-in-delay" id="wrap-b" onclick="castVote('b')">
-        <img id="photo-b" class="vote-card-img" src="" alt="" />
-        <div class="vote-card-overlay">
-          <div style="font-size:20px;font-weight:800;text-shadow:0 2px 8px rgba(0,0,0,0.5);" id="name-b"></div>
-          <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
-            <span style="font-size:12px;color:rgba(255,255,255,0.6);" id="elo-b"></span>
-            <span id="tier-b"></span>
+        <!-- Challenger bubble (person B) -->
+        <div id="challenger-wrap">
+          <div style="position:relative;">
+            <img id="challenger-photo" src="" alt="" />
+            <div class="vs-pill">VS</div>
+            <div class="challenger-name-tag" id="challenger-name"></div>
           </div>
-          <div id="cats-b" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;"></div>
         </div>
-        <div class="vote-choose-hint">
-          <span style="background:rgba(255,255,255,0.15);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.2);border-radius:999px;padding:10px 24px;font-weight:700;font-size:15px;">Choose</span>
-        </div>
-        <div id="swipe-overlay-b" class="swipe-hint-overlay"><span class="swipe-label">PICK</span></div>
-        <div class="key-hint">2</div>
-        <button class="zoom-trigger" onclick="event.stopPropagation();openZoom('b')" title="Zoom (Z)">🔍</button>
-        <button onclick="event.stopPropagation();openReport('b')" title="Report"
-          style="position:absolute;top:14px;right:14px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:rgba(255,255,255,0.4);font-size:14px;padding:5px 8px;cursor:pointer;backdrop-filter:blur(4px);transition:color .15s,background .15s;"
-          onmouseover="this.style.color='#f87171';this.style.background='rgba(239,68,68,0.2)'"
-          onmouseout="this.style.color='rgba(255,255,255,0.4)';this.style.background='rgba(0,0,0,0.5)'">⚑</button>
-        <div id="delta-b" style="display:none;position:absolute;top:56px;right:14px;"></div>
+
       </div>
-
     </div>
 
-    <div style="text-align:center;padding:24px 24px 48px;">
-      <button class="skip-btn" id="skip-btn" onclick="fetchMatchup()">Skip this matchup →</button>
+    <!-- Action buttons -->
+    <div class="action-row">
+      <button class="action-btn btn-pass" onclick="castVote('b')" title="Pass (←)">✕</button>
+      <button class="action-btn btn-skip" onclick="fetchMatchup()" title="Skip (S)">↷</button>
+      <button class="action-btn btn-hot"  onclick="castVote('a')" title="Hot (→)">❤</button>
     </div>
+
+    <p style="text-align:center;color:var(--muted);font-size:12px;padding-bottom:16px;">
+      <kbd style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;">←</kbd>
+      pass ·
+      <kbd style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;">→</kbd>
+      hot ·
+      <kbd style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;">S</kbd>
+      skip
+    </p>
   </div>
 
   <!-- Rank reveal panel -->
   <div id="rank-reveal">
-    <div style="background:var(--glass-bg);backdrop-filter:blur(20px);border-top:1px solid var(--border);padding:20px 24px 24px;text-align:center;">
+    <div style="background:var(--glass-bg);backdrop-filter:blur(20px);border-top:1px solid var(--border);padding:20px 24px 28px;text-align:center;">
       <p style="font-size:13px;color:var(--muted);margin-bottom:4px;font-weight:500;">Your current rank</p>
       <div style="display:flex;align-items:center;justify-content:center;gap:16px;">
-        <p id="rank-number" style="font-size:48px;font-weight:900;letter-spacing:-.03em;"></p>
+        <p id="rank-number" style="font-size:52px;font-weight:900;letter-spacing:-.03em;"></p>
         <div>
-          <p id="rank-diff" style="font-size:18px;font-weight:700;"></p>
-          <p id="rank-elo" style="font-size:12px;color:var(--muted);margin-top:2px;"></p>
+          <p id="rank-diff" style="font-size:20px;font-weight:700;"></p>
+          <p id="rank-next" style="font-size:12px;color:var(--muted);margin-top:2px;"></p>
         </div>
       </div>
     </div>
   </div>
-
-  <!-- Milestone toast -->
-  <div id="milestone-toast"></div>
 
   <!-- Photo zoom modal -->
   <div id="zoom-modal" class="zoom-modal" style="display:none;" onclick="closeZoom()">
@@ -306,35 +378,25 @@
 
   <script>
     let profileA = null, profileB = null, currentUser = null
-    let voting = false, reportTarget = null, zoomSide = null
-    let catsCache = {}      // profile_id → [category names]
-    let nextPair  = null    // preloaded [profileA, profileB]
-    let preloading = false  // true while background fetch is running
-    let allProfiles = []    // cached profile list (refreshed on each foreground fetch)
-    let myRank = null       // current user's rank (fetched after each vote)
+    let voting = false, reportTarget = null
+    let catsCache = {}
+    let nextPair = null, preloading = false
+    let allProfiles = []
+    let myRank = null
 
     // ── Daily vote tracking ───────────────────────────────────────────────────
     const DAILY_LIMIT = 50
     function dailyKey() { return 'mm_daily_' + new Date().toDateString() }
     function getDailyVotes() { return parseInt(localStorage.getItem(dailyKey()) || '0') }
-    function incDailyVotes() {
-      const n = getDailyVotes() + 1
-      localStorage.setItem(dailyKey(), n)
-      return n
-    }
+    function incDailyVotes() { const n = getDailyVotes() + 1; localStorage.setItem(dailyKey(), n); return n }
     function updateDailyBar() {
       const n = getDailyVotes()
-      const pct = Math.min(n / DAILY_LIMIT * 100, 100)
-      document.getElementById('daily-bar').style.width = pct + '%'
+      document.getElementById('daily-bar').style.width = Math.min(n / DAILY_LIMIT * 100, 100) + '%'
       document.getElementById('daily-label').textContent = `${n} / ${DAILY_LIMIT} today`
     }
-
-    // ── Countdown for daily limit screen ─────────────────────────────────────
     function startCountdown() {
       function tick() {
-        const now = new Date(), midnight = new Date()
-        midnight.setHours(24,0,0,0)
-        const diff = midnight - now
+        const diff = new Date().setHours(24,0,0,0) - Date.now()
         const h = Math.floor(diff/3600000), m = Math.floor(diff%3600000/60000), s = Math.floor(diff%60000/1000)
         const el = document.getElementById('daily-countdown')
         if (el) el.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
@@ -342,15 +404,11 @@
       tick(); setInterval(tick, 1000)
     }
 
-    // ── Offline UI ─────────────────────────────────────────────────────────
+    // ── Offline ───────────────────────────────────────────────────────────────
     window.addEventListener('offline', () => document.body.classList.add('is-offline'))
     window.addEventListener('online',  () => document.body.classList.remove('is-offline'))
     if (!navigator.onLine) document.body.classList.add('is-offline')
-
-    // ── Service worker registration ─────────────────────────────────────────
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js').catch(() => {})
-    }
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {})
 
     initNav()
 
@@ -363,166 +421,145 @@
       renderStreak()
       if (getDailyVotes() >= DAILY_LIMIT) { show('daily-limit'); startCountdown(); return }
       fetchMatchup()
-      fetchMyRank()   // background — shows rank pill in header
+      fetchMyRank()
+      subscribeToVotedOn()
     }
 
-    function renderStreak() {
-      const { count } = getStreak()
-      const wrap = document.getElementById('streak-wrap')
-      if (count >= 3) {
-        document.getElementById('streak-count').textContent = count
-        wrap.style.display = 'inline-flex'
-      } else {
-        wrap.style.display = 'none'
-      }
+    // ── Realtime: "You were voted on" ────────────────────────────────────────
+    function subscribeToVotedOn() {
+      const sb = getSupabase()
+      sb.channel('voted-on-' + currentUser.id)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'votes',
+          filter: `winner_id=eq.${currentUser.id}` }, () => showVotedAlert(true))
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'votes',
+          filter: `loser_id=eq.${currentUser.id}` }, () => showVotedAlert(false))
+        .subscribe()
+    }
+
+    let votedAlertTimer = null
+    function showVotedAlert(won) {
+      const el = document.getElementById('voted-alert')
+      const icon = document.getElementById('voted-alert-icon')
+      const text = document.getElementById('voted-alert-text')
+      icon.textContent = won ? '❤️' : '👀'
+      text.textContent = won ? 'Someone chose you!' : 'Someone just saw your photo!'
+      el.classList.add('show')
+      clearTimeout(votedAlertTimer)
+      votedAlertTimer = setTimeout(() => el.classList.remove('show'), 3000)
     }
 
     // ── Matchup fetch + preload ──────────────────────────────────────────────
     async function fetchMatchup() {
-      // If preloaded pair is ready, use it instantly — no skeleton flash
       if (nextPair) {
-        const pair = nextPair
-        nextPair = null
+        const pair = nextPair; nextPair = null
         profileA = pair[0]; profileB = pair[1]
-        renderCards()
-        show('vote-view')
-        preloadNextPair()   // start background preload for the one after
-        return
+        renderCard(); show('vote-view')
+        preloadNextPair(); return
       }
-
-      // No preloaded pair — full fetch with skeleton
       show('skeleton')
       const pair = await computePair()
-      if (!pair) return  // computePair already called show() for error/empty
-
+      if (!pair) return
       profileA = pair[0]; profileB = pair[1]
-      markPairSeen(profileA.id, profileB.id)
       await Promise.all([loadCats(profileA.id), loadCats(profileB.id)])
-      // Preload images
       preloadImages(profileA.photo_url, profileB.photo_url)
-      renderCards()
-      show('vote-view')
+      renderCard(); show('vote-view')
       preloadNextPair()
     }
 
     async function preloadNextPair() {
-      if (preloading) return
-      preloading = true
+      if (preloading) return; preloading = true
       try {
-        const pair = await computePair(true /* silent */)
-        if (pair) {
-          await Promise.all([loadCats(pair[0].id), loadCats(pair[1].id)])
-          preloadImages(pair[0].photo_url, pair[1].photo_url)
-          nextPair = pair
-        }
-      } finally {
-        preloading = false
-      }
+        const pair = await computePair(true)
+        if (pair) { await Promise.all([loadCats(pair[0].id), loadCats(pair[1].id)]); preloadImages(pair[0].photo_url, pair[1].photo_url); nextPair = pair }
+      } finally { preloading = false }
     }
 
-    // Returns [profileA, profileB] or null. If silent=false it also calls show() on error.
     async function computePair(silent = false) {
       const sb = getSupabase()
-
-      // Refresh profile list if needed (do a fresh fetch when not silent)
       if (!silent || !allProfiles.length) {
         const { data, error } = await sb.from('profiles')
           .select('id,username,photo_url,elo_score,vote_count')
-          .neq('id', currentUser.id)
-          .eq('opted_out', false)
-
-        if (error || !data || data.length < 2) {
-          if (!silent) showErr('Not enough profiles to match yet — invite some friends!')
-          return null
-        }
+          .neq('id', currentUser.id).eq('opted_out', false)
+        if (error || !data || data.length < 2) { if (!silent) showErr('Not enough profiles yet — invite friends!'); return null }
         allProfiles = data
       }
-
-      const { data: myVotes } = await sb.from('votes')
-        .select('winner_id,loser_id').eq('voter_id', currentUser.id)
-      const seenDb = new Set()
-      myVotes?.forEach(v => { seenDb.add(v.winner_id); seenDb.add(v.loser_id) })
-
-      const unseen   = allProfiles.filter(p => !seenDb.has(p.id))
-      const pool     = unseen.length >= 2 ? unseen : allProfiles
-      const shuffled = [...pool].sort(() => Math.random() - 0.5)
-
+      const { data: myVotes } = await sb.from('votes').select('winner_id,loser_id').eq('voter_id', currentUser.id)
+      const seenDb = new Set(); myVotes?.forEach(v => { seenDb.add(v.winner_id); seenDb.add(v.loser_id) })
+      const unseen = allProfiles.filter(p => !seenDb.has(p.id))
+      const pool = unseen.length >= 2 ? unseen : allProfiles
+      const shuffled = [...pool].sort(() => Math.random() - .5)
       let pair = null
       outer: for (let i = 0; i < shuffled.length - 1; i++) {
         for (let j = i + 1; j < shuffled.length; j++) {
-          if (!hasPairBeenSeen(shuffled[i].id, shuffled[j].id)) {
-            pair = [shuffled[i], shuffled[j]]; break outer
-          }
+          if (!hasPairBeenSeen(shuffled[i].id, shuffled[j].id)) { pair = [shuffled[i], shuffled[j]]; break outer }
         }
       }
-
       if (!pair) {
         if (unseen.length < 2) { if (!silent) show('empty-view'); return null }
-        sessionStorage.removeItem('pr_seen')
-        pair = [shuffled[0], shuffled[1]]
+        sessionStorage.removeItem('pr_seen'); pair = [shuffled[0], shuffled[1]]
       }
-
-      markPairSeen(pair[0].id, pair[1].id)
-      return pair
+      markPairSeen(pair[0].id, pair[1].id); return pair
     }
 
-    function preloadImages(...urls) {
-      urls.forEach(src => { const img = new Image(); img.src = src })
-    }
+    function preloadImages(...urls) { urls.forEach(src => { const img = new Image(); img.src = src }) }
 
     async function loadCats(id) {
       if (catsCache[id]) return
-      const { data } = await getSupabase()
-        .from('profile_categories').select('categories(name)').eq('profile_id', id)
+      const { data } = await getSupabase().from('profile_categories').select('categories(name)').eq('profile_id', id)
       catsCache[id] = data?.map(r => r.categories?.name).filter(Boolean) ?? []
     }
 
-    function renderCards() {
-      ;['a','b'].forEach(s => {
-        const p = s === 'a' ? profileA : profileB
-        document.getElementById(`photo-${s}`).src = p.photo_url
-        document.getElementById(`photo-${s}`).alt = p.username
-        document.getElementById(`name-${s}`).textContent = p.username
-        document.getElementById(`elo-${s}`).textContent = `ELO ${p.elo_score}`
-        document.getElementById(`tier-${s}`).innerHTML = tierBadgeHtml(p.elo_score)
-        document.getElementById(`delta-${s}`).style.display = 'none'
-        const cats = catsCache[p.id] || []
-        document.getElementById(`cats-${s}`).innerHTML = cats.slice(0,2).map(c =>
-          `<span style="font-size:10px;background:rgba(255,255,255,0.12);border-radius:999px;padding:2px 7px;color:rgba(255,255,255,0.7);">${escapeHtml(c)}</span>`
-        ).join('')
-        const wrap = document.getElementById(`wrap-${s}`)
-        wrap.classList.remove('winner-anim','loser-anim')
-        wrap.style.cssText = ''
-        // Reset swipe overlays
-        const ov = document.getElementById(`swipe-overlay-${s}`)
-        ov.style.opacity = '0'
-        ov.classList.remove('swipe-reject')
-      })
-      document.getElementById('skip-btn').disabled = false
-      updateCounter()
+    function renderCard() {
+      const card = document.getElementById('tinder-card')
+      card.classList.remove('fly-right','fly-left')
+      card.style.transform = ''; card.style.transition = ''
+      card.classList.add('slide-in')
+      setTimeout(() => card.classList.remove('slide-in'), 400)
+
+      document.getElementById('card-photo').src = profileA.photo_url
+      document.getElementById('card-photo').alt = profileA.username
+      document.getElementById('card-name').textContent = profileA.username
+      document.getElementById('card-elo').textContent = `ELO ${profileA.elo_score}`
+      document.getElementById('card-tier').innerHTML = tierBadgeHtml(profileA.elo_score)
+      const cats = catsCache[profileA.id] || []
+      document.getElementById('card-cats').innerHTML = cats.slice(0,2).map(c =>
+        `<span style="font-size:10px;background:rgba(255,255,255,.12);border-radius:999px;padding:2px 7px;color:rgba(255,255,255,.7);">${escapeHtml(c)}</span>`
+      ).join('')
+      document.getElementById('pick-yes').style.opacity = '0'
+      document.getElementById('pick-no').style.opacity  = '0'
+
+      // Challenger thumbnail
+      document.getElementById('challenger-photo').src = profileB.photo_url
+      document.getElementById('challenger-photo').alt = profileB.username
+      document.getElementById('challenger-name').textContent = profileB.username
+
+      updateDailyBar()
       renderStreak()
+      updateRankTease()
     }
 
+    // ── Cast vote ─────────────────────────────────────────────────────────────
     async function castVote(choice) {
       if (voting) return
       if (!checkRateLimit()) { show('rate-limit'); return }
 
       const daily = incDailyVotes()
       updateDailyBar()
-
       voting = true
 
       const winner = choice === 'a' ? profileA : profileB
       const loser  = choice === 'a' ? profileB : profileA
-      const ws = choice, ls = choice === 'a' ? 'b' : 'a'
 
       const { winnerNew, loserNew } = calcEloUpdate(winner.elo_score, loser.elo_score)
-      showDelta(ws, winnerNew - winner.elo_score, true)
-      showDelta(ls, loserNew  - loser.elo_score,  false)
 
-      document.getElementById(`wrap-${ws}`).classList.add('winner-anim')
-      document.getElementById(`wrap-${ls}`).classList.add('loser-anim')
-      document.getElementById('skip-btn').disabled = true
+      // Fly card off screen
+      const card = document.getElementById('tinder-card')
+      card.style.transition = 'transform .38s ease-out, opacity .38s ease-out'
+      if (choice === 'a') {
+        card.style.transform = 'translateX(130%) rotate(25deg)'; card.style.opacity = '0'
+      } else {
+        card.style.transform = 'translateX(-130%) rotate(-25deg)'; card.style.opacity = '0'
+      }
 
       // Streak
       const streak = incrementStreak()
@@ -534,11 +571,11 @@
         setTimeout(() => badge.classList.remove('streak-new'), 500)
       }
 
-      // Confetti!
+      // Confetti
       triggerConfetti()
 
       // Milestone toasts
-      const milestones = { 1:'First vote! 🎉', 5:'5 votes! 🔥', 10:'10 votes! 💪', 25:'25 votes! 🏆', 50:'50 votes! 👑' }
+      const milestones = { 1:'First vote! 🎉', 5:'5 votes 🔥', 10:'10 votes! 💪', 25:'25 votes 🏆', 50:'50 votes 👑' }
       if (milestones[daily]) showMilestone(milestones[daily])
 
       if (isOnline()) {
@@ -559,184 +596,73 @@
       winner.elo_score = winnerNew; winner.vote_count += 1
       loser.elo_score  = loserNew;  loser.vote_count  += 1
 
-      // Show rank reveal, then load next matchup
+      // Rank reveal (non-blocking)
       const prevRank = myRank
-      fetchMyRank().then(newRank => {
-        if (newRank) showRankReveal(newRank, prevRank)
-      })
+      fetchMyRank().then(newRank => { if (newRank) showRankReveal(newRank, prevRank) })
 
       setTimeout(() => {
         voting = false
         if (daily >= DAILY_LIMIT) { show('daily-limit'); startCountdown() }
         else fetchMatchup()
-      }, 950)
+      }, 400)
     }
 
-    function showDelta(side, delta, win) {
-      const el = document.getElementById(`delta-${side}`)
-      el.style.cssText = `
-        display:inline-block;
-        background:${win ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'};
-        border:1px solid ${win ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.4)'};
-        color:${win ? '#86efac' : '#fca5a5'};
-        border-radius:999px;padding:4px 12px;font-size:14px;font-weight:700;
-        backdrop-filter:blur(8px);
-        position:absolute;top:56px;right:14px;
-      `
-      el.textContent = fmtElo(delta)
-    }
+    // ── Swipe (touch + mouse) ─────────────────────────────────────────────────
+    let dragStartX = 0, dragStartY = 0, dragging = false, dragDeltaX = 0
+    const SWIPE_THRESHOLD = 80, SWIPE_MAX = 140
 
-    // ── Touch swipe ──────────────────────────────────────────────────────────
-    let touchStartX = 0, touchStartY = 0, touchDeltaX = 0
-    let swiping = false
-    const SWIPE_THRESHOLD = 55   // px to trigger vote
-    const SWIPE_MAX = 130        // px where indicator hits full opacity
-
-    const voteArea = document.getElementById('vote-view')
-
-    voteArea.addEventListener('touchstart', e => {
+    function onDragStart(clientX, clientY) {
       if (voting) return
-      touchStartX = e.touches[0].clientX
-      touchStartY = e.touches[0].clientY
-      touchDeltaX = 0
-      swiping = true
-    }, { passive: true })
-
-    voteArea.addEventListener('touchmove', e => {
-      if (!swiping || voting) return
-      const dx = e.touches[0].clientX - touchStartX
-      const dy = e.touches[0].clientY - touchStartY
-
-      // Only handle predominantly horizontal swipes
-      if (Math.abs(dy) > Math.abs(dx)) return
-
-      touchDeltaX = dx
+      dragStartX = clientX; dragStartY = clientY; dragDeltaX = 0; dragging = true
+    }
+    function onDragMove(clientX, clientY) {
+      if (!dragging || voting) return
+      const dx = clientX - dragStartX
+      const dy = clientY - dragStartY
+      if (Math.abs(dy) > Math.abs(dx) + 10) return
+      dragDeltaX = dx
+      const card = document.getElementById('tinder-card')
       const progress = Math.min(Math.abs(dx) / SWIPE_MAX, 1)
-      const winSide  = dx > 0 ? 'a' : 'b'
-      const loseSide = dx > 0 ? 'b' : 'a'
-
-      // Tilt winner card toward swipe direction
-      document.getElementById(`wrap-${winSide}`).style.transform =
-        `translateX(${dx * 0.08}px) rotate(${dx * 0.012}deg)`
-      document.getElementById(`wrap-${winSide}`).style.boxShadow =
-        `0 0 ${progress * 48}px rgba(34,197,94,${progress * 0.35})`
-
-      // Dim loser card slightly
-      document.getElementById(`wrap-${loseSide}`).style.opacity =
-        String(1 - progress * 0.25)
-
-      // Show swipe overlay on winner card
-      const winOv = document.getElementById(`swipe-overlay-${winSide}`)
-      winOv.style.opacity = String(progress)
-      winOv.classList.remove('swipe-reject')
-
-      // Show reject overlay on loser card
-      const loseOv = document.getElementById(`swipe-overlay-${loseSide}`)
-      loseOv.style.opacity = String(progress * 0.6)
-      loseOv.classList.add('swipe-reject')
-    }, { passive: true })
-
-    voteArea.addEventListener('touchend', () => {
-      if (!swiping || voting) return
-      swiping = false
-
-      // Reset visual state on both cards
-      ;['a','b'].forEach(s => {
-        const wrap = document.getElementById(`wrap-${s}`)
-        wrap.style.transform = ''
-        wrap.style.boxShadow = ''
-        wrap.style.opacity   = ''
-        const ov = document.getElementById(`swipe-overlay-${s}`)
-        ov.style.opacity = '0'
-        ov.classList.remove('swipe-reject')
-      })
-
-      if (Math.abs(touchDeltaX) >= SWIPE_THRESHOLD) {
-        castVote(touchDeltaX > 0 ? 'a' : 'b')
+      card.style.transition = 'none'
+      card.style.transform = `translateX(${dx}px) rotate(${dx * 0.06}deg)`
+      document.getElementById('pick-yes').style.opacity = dx > 0 ? progress : '0'
+      document.getElementById('pick-no').style.opacity  = dx < 0 ? progress : '0'
+    }
+    function onDragEnd() {
+      if (!dragging || voting) return; dragging = false
+      const card = document.getElementById('tinder-card')
+      if (Math.abs(dragDeltaX) >= SWIPE_THRESHOLD) {
+        castVote(dragDeltaX > 0 ? 'a' : 'b')
+      } else {
+        card.style.transition = 'transform .3s cubic-bezier(.34,1.56,.64,1)'
+        card.style.transform = ''
+        document.getElementById('pick-yes').style.opacity = '0'
+        document.getElementById('pick-no').style.opacity  = '0'
       }
-    }, { passive: true })
-
-    // ── Zoom ─────────────────────────────────────────────────────────────────
-    function openZoom(side) {
-      const p = side === 'a' ? profileA : profileB
-      document.getElementById('zoom-img').src = p.photo_url
-      document.getElementById('zoom-modal').style.display = 'flex'
-      zoomSide = side
-    }
-    function closeZoom() { document.getElementById('zoom-modal').style.display = 'none' }
-
-    // ── Report ────────────────────────────────────────────────────────────────
-    function openReport(side) {
-      reportTarget = side
-      document.getElementById('report-status').style.display = 'none'
-      document.querySelector('input[name="rr"][value="inappropriate"]').checked = true
-      document.getElementById('report-modal').style.display = 'flex'
-    }
-    function closeReport() { document.getElementById('report-modal').style.display = 'none'; reportTarget = null }
-    async function submitReport() {
-      const reason = document.querySelector('input[name="rr"]:checked')?.value
-      const reported = reportTarget === 'a' ? profileA : profileB
-      const statusEl = document.getElementById('report-status')
-      const { error } = await getSupabase().from('reports').insert({
-        reporter_id: currentUser.id, reported_user_id: reported.id, reason
-      })
-      if (error) { statusEl.textContent = 'Failed. Try again.'; statusEl.style.color='#f87171'; statusEl.style.display='block'; return }
-      statusEl.textContent = '✓ Report submitted. Thank you.'; statusEl.style.color='#86efac'; statusEl.style.display='block'
-      setTimeout(() => { closeReport(); fetchMatchup() }, 1200)
     }
 
-    // ── Invite copy (empty state) ─────────────────────────────────────────────
-    async function copyInvite() {
-      const { data: { user } } = await getSupabase().auth.getUser()
-      if (!user) return
-      const code = await getOrCreateInviteCode(user.id)
-      const url = `${location.origin}${location.pathname.replace('vote.html','index.html')}?invite=${code}`
-      try { await navigator.clipboard.writeText(url) } catch { prompt('Copy:', url); return }
-      const btn = document.getElementById('invite-copy-btn')
-      btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = '📋 Copy Invite Link' }, 2000)
-    }
+    // Touch
+    const voteView = document.getElementById('vote-view')
+    voteView.addEventListener('touchstart', e => onDragStart(e.touches[0].clientX, e.touches[0].clientY), { passive: true })
+    voteView.addEventListener('touchmove',  e => onDragMove(e.touches[0].clientX, e.touches[0].clientY), { passive: true })
+    voteView.addEventListener('touchend',   () => onDragEnd(), { passive: true })
 
-    // ── Keyboard shortcuts ────────────────────────────────────────────────────
+    // Mouse
+    voteView.addEventListener('mousedown',  e => onDragStart(e.clientX, e.clientY))
+    window.addEventListener('mousemove',    e => { if (dragging) onDragMove(e.clientX, e.clientY) })
+    window.addEventListener('mouseup',      () => { if (dragging) onDragEnd() })
+
+    // ── Keyboard ──────────────────────────────────────────────────────────────
     document.addEventListener('keydown', e => {
       if (voting || document.getElementById('vote-view').style.display === 'none') return
-      if (document.getElementById('zoom-modal').style.display !== 'none') {
-        if (e.key==='Escape'||e.key==='z'||e.key==='Z') closeZoom(); return
-      }
-      if (e.key==='1') castVote('a')
-      else if (e.key==='2') castVote('b')
+      if (document.getElementById('zoom-modal').style.display !== 'none') { if (e.key==='Escape') closeZoom(); return }
+      if (e.key==='ArrowRight'||e.key==='1') castVote('a')
+      else if (e.key==='ArrowLeft'||e.key==='2') castVote('b')
       else if (e.key==='s'||e.key==='S') fetchMatchup()
-      else if (e.key==='z'||e.key==='Z') openZoom('a')
       else if (e.key==='Escape') closeReport()
     })
 
-    // ── Confetti ──────────────────────────────────────────────────────────────
-    function triggerConfetti() {
-      const colors = ['#9B0000','#C1272D','#FECACA','#ffffff','#FCA5A5','#fbbf24','#f472b6']
-      const cx = window.innerWidth / 2, cy = window.innerHeight / 2
-      for (let i = 0; i < 55; i++) {
-        const el = document.createElement('div')
-        el.className = 'confetti-piece'
-        const angle = (Math.PI * 2 * i) / 55 + (Math.random() - .5) * 0.4
-        const dist  = 80 + Math.random() * 160
-        const x = cx + Math.cos(angle) * dist * (0.4 + Math.random() * 0.6)
-        const y = cy + Math.sin(angle) * dist * (0.4 + Math.random() * 0.6)
-        const size = 6 + Math.random() * 8
-        el.style.cssText = `
-          left:${x}px; top:${y}px;
-          width:${size}px; height:${size}px;
-          background:${colors[Math.floor(Math.random() * colors.length)]};
-          border-radius:${Math.random() > .4 ? '50%' : '2px'};
-          --dur:${0.5 + Math.random() * 0.7}s;
-          --delay:${Math.random() * 0.15}s;
-          --fall:${60 + Math.random() * 160}px;
-          --spin:${-360 + Math.random() * 720}deg;
-        `
-        document.body.appendChild(el)
-        setTimeout(() => el.remove(), 1400)
-      }
-    }
-
-    // ── Rank reveal ───────────────────────────────────────────────────────────
+    // ── Rank helpers ──────────────────────────────────────────────────────────
     async function fetchMyRank() {
       if (!currentUser) return null
       const sb = getSupabase()
@@ -746,11 +672,8 @@
         .gt('elo_score', prof.elo_score).eq('opted_out', false)
       const rank = (count ?? 0) + 1
       myRank = rank
-
-      // Update rank pill in header
       const pill = document.getElementById('my-rank-pill')
-      pill.textContent = `You: #${rank}`
-      pill.style.display = 'inline-block'
+      pill.textContent = `You: #${rank}`; pill.style.display = 'inline-block'
       return rank
     }
 
@@ -758,25 +681,103 @@
       document.getElementById('rank-number').textContent = `#${newRank}`
       const diffEl = document.getElementById('rank-diff')
       const diff = prevRank ? prevRank - newRank : 0
-      if (diff > 0) { diffEl.textContent = `↑ ${diff} spot${diff>1?'s':''}!`; diffEl.style.color = '#86efac' }
+      if (diff > 0)      { diffEl.textContent = `↑ ${diff} spot${diff>1?'s':''}!`; diffEl.style.color = '#86efac' }
       else if (diff < 0) { diffEl.textContent = `↓ ${Math.abs(diff)} spot${Math.abs(diff)>1?'s':''}`; diffEl.style.color = '#fca5a5' }
-      else { diffEl.textContent = 'Holding steady'; diffEl.style.color = 'var(--muted)' }
-      document.getElementById('rank-elo').textContent = ''
-
+      else               { diffEl.textContent = 'Holding steady'; diffEl.style.color = 'var(--muted)' }
       const panel = document.getElementById('rank-reveal')
       panel.classList.add('show')
       setTimeout(() => panel.classList.remove('show'), 1800)
     }
 
+    function updateRankTease() {
+      if (!myRank || myRank <= 1) return
+      getSupabase().from('profiles').select('elo_score').eq('opted_out', false)
+        .order('elo_score', { ascending: false }).range(myRank - 2, myRank - 2).single()
+        .then(({ data }) => {
+          if (!data) return
+          getSupabase().from('profiles').select('elo_score').eq('id', currentUser.id).single()
+            .then(({ data: me }) => {
+              if (!me) return
+              const gap = data.elo_score - me.elo_score + 1
+              const el = document.getElementById('rank-tease')
+              if (gap > 0 && gap < 100) {
+                el.innerHTML = `Only <strong>${gap} ELO</strong> from breaking into <strong>#${myRank - 1}</strong> 👀`
+              }
+            })
+        })
+    }
+
+    // ── Confetti ──────────────────────────────────────────────────────────────
+    function triggerConfetti() {
+      const colors = ['#9B0000','#C1272D','#FECACA','#ffffff','#FCA5A5','#fbbf24','#f472b6']
+      const cx = window.innerWidth / 2, cy = window.innerHeight * .45
+      for (let i = 0; i < 55; i++) {
+        const el = document.createElement('div'); el.className = 'confetti-piece'
+        const angle = Math.PI * 2 * i / 55 + (Math.random() - .5) * .4
+        const dist  = 80 + Math.random() * 160
+        el.style.cssText = `
+          left:${cx + Math.cos(angle) * dist * (.4 + Math.random() * .6)}px;
+          top:${cy + Math.sin(angle) * dist * (.4 + Math.random() * .6)}px;
+          width:${6 + Math.random() * 8}px; height:${6 + Math.random() * 8}px;
+          background:${colors[Math.floor(Math.random() * colors.length)]};
+          border-radius:${Math.random() > .4 ? '50%' : '2px'};
+          --dur:${.5 + Math.random() * .7}s; --delay:${Math.random() * .15}s;
+          --fall:${60 + Math.random() * 160}px; --spin:${-360 + Math.random() * 720}deg;
+        `
+        document.body.appendChild(el); setTimeout(() => el.remove(), 1400)
+      }
+    }
+
     // ── Milestone toast ───────────────────────────────────────────────────────
     function showMilestone(msg) {
       const el = document.getElementById('milestone-toast')
-      el.textContent = msg
-      el.classList.add('show')
+      el.textContent = msg; el.classList.add('show')
       setTimeout(() => el.classList.remove('show'), 2000)
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── Zoom ──────────────────────────────────────────────────────────────────
+    function openZoom() {
+      document.getElementById('zoom-img').src = profileA.photo_url
+      document.getElementById('zoom-modal').style.display = 'flex'
+    }
+    function closeZoom() { document.getElementById('zoom-modal').style.display = 'none' }
+
+    // ── Report ────────────────────────────────────────────────────────────────
+    function openReport() {
+      document.getElementById('report-status').style.display = 'none'
+      document.querySelector('input[name="rr"][value="inappropriate"]').checked = true
+      document.getElementById('report-modal').style.display = 'flex'
+    }
+    function closeReport() { document.getElementById('report-modal').style.display = 'none' }
+    async function submitReport() {
+      const reason  = document.querySelector('input[name="rr"]:checked')?.value
+      const statusEl = document.getElementById('report-status')
+      const { error } = await getSupabase().from('reports').insert({
+        reporter_id: currentUser.id, reported_user_id: profileA.id, reason
+      })
+      if (error) { statusEl.textContent = 'Failed.'; statusEl.style.color = '#f87171'; statusEl.style.display = 'block'; return }
+      statusEl.textContent = '✓ Reported. Thank you.'; statusEl.style.color = '#86efac'; statusEl.style.display = 'block'
+      setTimeout(() => { closeReport(); fetchMatchup() }, 1200)
+    }
+
+    // ── Invite ────────────────────────────────────────────────────────────────
+    async function copyInvite() {
+      const { data: { user } } = await getSupabase().auth.getUser(); if (!user) return
+      const code = await getOrCreateInviteCode(user.id)
+      const url = `${location.origin}${location.pathname.replace('vote.html','index.html')}?invite=${code}`
+      try { await navigator.clipboard.writeText(url) } catch { prompt('Copy:', url); return }
+      const btn = document.getElementById('invite-copy-btn')
+      btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = '📋 Copy Invite Link' }, 2000)
+    }
+
+    function renderStreak() {
+      const { count } = getStreak()
+      const wrap = document.getElementById('streak-wrap')
+      if (count >= 3) { document.getElementById('streak-count').textContent = count; wrap.style.display = 'inline-flex' }
+      else wrap.style.display = 'none'
+    }
+
+    // ── Show/hide views ───────────────────────────────────────────────────────
     function show(id) {
       ;['skeleton','rate-limit','daily-limit','error-view','empty-view','vote-view'].forEach(i => {
         document.getElementById(i).style.display = 'none'

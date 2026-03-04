@@ -22,6 +22,13 @@
     .vote-row:hover { background:var(--surface); }
     .tab-panel { display:none; }
     .tab-panel.active { display:block; }
+    .mystery-photo {
+      width: 52px; height: 52px; border-radius: 12px;
+      object-fit: cover; filter: blur(8px);
+      border: 2px solid rgba(155,0,0,.3);
+      cursor: default; transition: filter .3s;
+    }
+    .mystery-photo:hover { filter: blur(12px); }
   </style>
 </head>
 <body>
@@ -140,6 +147,24 @@
             <div class="skeleton" style="height:50px;border-radius:12px;"></div>
             <div class="skeleton" style="height:50px;border-radius:12px;"></div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mystery voters (own profile only) -->
+    <div id="mystery-section" style="display:none;margin-bottom:24px;">
+      <div class="glass-card" style="padding:24px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <h2 style="font-size:16px;font-weight:700;">👀 Who's seen you</h2>
+          <span id="mystery-count" style="font-size:13px;color:var(--muted);font-weight:600;"></span>
+        </div>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:16px;">These Maroons have voted on your photo. Their identities are a mystery.</p>
+        <div id="mystery-grid" style="display:flex;flex-wrap:wrap;gap:10px;"></div>
+        <div id="mystery-chose" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+          <p style="font-size:13px;color:var(--muted);">
+            <span id="chose-count" style="font-weight:700;color:#86efac;"></span> people chose you ❤️ ·
+            <span id="lost-count"  style="font-weight:700;color:#fca5a5;"></span> passed
+          </p>
         </div>
       </div>
     </div>
@@ -272,6 +297,7 @@
 
       flip('content')
       loadVotes(profileId)
+      if (isOwnProfile) loadMysteryVoters(profileId)
     }
 
     async function loadVotes(profileId) {
@@ -348,6 +374,40 @@
         document.querySelectorAll('.tab-btn').forEach((btn, i) => btn.classList.toggle('active', ['votes','matches'][i] === tab))
       })
       if (tab === 'matches' && viewedProfile) loadMatches(viewedProfile.id)
+    }
+
+    // ── Mystery voters ────────────────────────────────────────────────────────
+    async function loadMysteryVoters(profileId) {
+      const sb = getSupabase()
+      const [{ data: wins }, { data: losses }] = await Promise.all([
+        sb.from('votes').select('voter_id').eq('winner_id', profileId).limit(50),
+        sb.from('votes').select('voter_id').eq('loser_id', profileId).limit(50),
+      ])
+      const voterIds = [...new Set([...(wins??[]), ...(losses??[])].map(v => v.voter_id))]
+      if (!voterIds.length) return
+
+      const { data: voterProfiles } = await sb.from('profiles')
+        .select('id,photo_url').in('id', voterIds).limit(20)
+      if (!voterProfiles?.length) return
+
+      document.getElementById('mystery-section').style.display = 'block'
+      document.getElementById('mystery-count').textContent = `${voterIds.length} voter${voterIds.length!==1?'s':''}`
+      document.getElementById('chose-count').textContent = wins?.length ?? 0
+      document.getElementById('lost-count').textContent  = losses?.length ?? 0
+
+      const grid = document.getElementById('mystery-grid')
+      const shown = voterProfiles.slice(0, 12)
+      grid.innerHTML = shown.map(v =>
+        `<img src="${escapeHtml(v.photo_url)}" class="mystery-photo" title="???" />`
+      ).join('')
+
+      // Add "+" bubble if more than shown
+      if (voterIds.length > 12) {
+        const extra = document.createElement('div')
+        extra.style.cssText = `width:52px;height:52px;border-radius:12px;background:var(--surface);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--muted);`
+        extra.textContent = `+${voterIds.length - 12}`
+        grid.appendChild(extra)
+      }
     }
 
     // ── Share card ────────────────────────────────────────────────────────
