@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#7c3aed" />
+  <meta name="theme-color" content="#9B0000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PhotoRank – Match History</title>
+  <title>Maroon Match – Match History</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
@@ -35,11 +35,11 @@
       transition: all .15s;
     }
     .filter-btn.active {
-      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      background: linear-gradient(135deg, #9B0000, #C1272D);
       border-color: transparent;
       color: white;
     }
-    .filter-btn:hover:not(.active) { border-color: rgba(124,58,237,.4); color: var(--text); }
+    .filter-btn:hover:not(.active) { border-color: rgba(155,0,0,.4); color: var(--text); }
 
     /* ── Match row ──────────────────────────────────────────────────────── */
     .match-card {
@@ -49,7 +49,7 @@
       overflow: hidden;
       transition: border-color .15s, transform .15s;
     }
-    .match-card:hover { border-color: rgba(124,58,237,.35); transform: translateY(-1px); }
+    .match-card:hover { border-color: rgba(155,0,0,.35); transform: translateY(-1px); }
 
     .match-card-inner {
       display: grid;
@@ -132,7 +132,7 @@
       transition: all .15s;
     }
     .page-btn:disabled { opacity: .35; cursor: default; }
-    .page-btn:hover:not(:disabled) { border-color: rgba(124,58,237,.4); background: rgba(124,58,237,.08); }
+    .page-btn:hover:not(:disabled) { border-color: rgba(155,0,0,.4); background: rgba(155,0,0,.08); }
 
     /* ── Stats strip ────────────────────────────────────────────────────── */
     .stats-strip {
@@ -175,7 +175,7 @@
   <nav class="glass-nav">
     <div style="max-width:1200px;margin:0 auto;padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;">
       <a href="index.html" style="font-size:18px;font-weight:800;letter-spacing:-.02em;text-decoration:none;color:inherit;">
-        Photo<span class="grad-text">Rank</span>
+        Maroon <span class="grad-text">Match</span>
       </a>
       <div style="display:flex;gap:8px;align-items:center;">
         <div id="nav-actions" style="display:flex;gap:8px;align-items:center;"></div>

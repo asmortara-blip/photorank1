@@ -60,11 +60,11 @@ function getToastContainer() {
 
 function showToast(msg, type = 'info', duration = 4000) {
   const colors = {
-    info:    { bg: 'rgba(79,70,229,0.9)',   border: 'rgba(124,58,237,0.5)' },
+    info:    { bg: 'rgba(155,0,0,0.9)',   border: 'rgba(155,0,0,0.5)' },
     success: { bg: 'rgba(22,163,74,0.9)',   border: 'rgba(34,197,94,0.5)' },
     warning: { bg: 'rgba(180,83,9,0.9)',    border: 'rgba(251,146,60,0.5)' },
     error:   { bg: 'rgba(185,28,28,0.9)',   border: 'rgba(239,68,68,0.5)' },
-    match:   { bg: 'rgba(124,58,237,0.95)', border: 'rgba(167,139,250,0.5)' },
+    match:   { bg: 'rgba(155,0,0,0.95)', border: 'rgba(167,139,250,0.5)' },
   }
   const c = colors[type] || colors.info
   const el = document.createElement('div')
@@ -254,7 +254,7 @@ async function generateShareCard(username, elo, rank, photoUrl) {
 
   // Purple glow
   const glow = ctx.createRadialGradient(480, 80, 0, 480, 80, 200)
-  glow.addColorStop(0, 'rgba(124,58,237,0.3)')
+  glow.addColorStop(0, 'rgba(155,0,0,0.3)')
   glow.addColorStop(1, 'transparent')
   ctx.fillStyle = glow
   ctx.fillRect(0, 0, 600, 340)
@@ -271,7 +271,7 @@ async function generateShareCard(username, elo, rank, photoUrl) {
     // Ring
     ctx.beginPath()
     ctx.arc(100, 170, 74, 0, Math.PI * 2)
-    ctx.strokeStyle = 'rgba(124,58,237,0.7)'
+    ctx.strokeStyle = 'rgba(155,0,0,0.7)'
     ctx.lineWidth = 3
     ctx.stroke()
   } catch {}
@@ -279,7 +279,7 @@ async function generateShareCard(username, elo, rank, photoUrl) {
   // Logo
   ctx.font = '700 16px Inter, sans-serif'
   ctx.fillStyle = 'rgba(255,255,255,0.4)'
-  ctx.fillText('PhotoRank', 210, 60)
+  ctx.fillText('Maroon Match', 210, 60)
 
   // Tier
   const tier = getTier(elo)
@@ -294,7 +294,7 @@ async function generateShareCard(username, elo, rank, photoUrl) {
 
   // ELO
   ctx.font = '700 22px Inter, sans-serif'
-  ctx.fillStyle = '#c4b5fd'
+  ctx.fillStyle = '#FECACA'
   ctx.fillText(`ELO ${elo}`, 210, 180)
 
   // Rank

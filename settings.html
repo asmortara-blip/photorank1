@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#7c3aed" />
+  <meta name="theme-color" content="#9B0000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PhotoRank – Settings</title>
+  <title>Maroon Match – Settings</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
@@ -19,7 +19,7 @@
 
   <nav class="glass-nav">
     <div style="max-width:900px;margin:0 auto;padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;">
-      <a href="index.html" style="font-size:18px;font-weight:800;letter-spacing:-.02em;text-decoration:none;color:inherit;">Photo<span class="grad-text">Rank</span></a>
+      <a href="index.html" style="font-size:18px;font-weight:800;letter-spacing:-.02em;text-decoration:none;color:inherit;">Maroon <span class="grad-text">Match</span></a>
       <div style="display:flex;gap:8px;align-items:center;">
         <a href="profile.html" style="color:var(--muted);text-decoration:none;font-size:14px;padding:6px 12px;border-radius:8px;" onmouseover="this.style.color='white'" onmouseout="this.style.color='var(--muted)'">← Profile</a>
         <div id="nav-actions" style="display:flex;gap:8px;align-items:center;"></div>
@@ -28,7 +28,7 @@
   </nav>
 
   <div id="loading" style="display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 60px);">
-    <div style="width:32px;height:32px;border-radius:50%;border:2px solid rgba(124,58,237,0.3);border-top-color:#7c3aed;animation:spin .8s linear infinite;"></div>
+    <div style="width:32px;height:32px;border-radius:50%;border:2px solid rgba(155,0,0,0.3);border-top-color:#9B0000;animation:spin .8s linear infinite;"></div>
   </div>
   <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 
@@ -201,9 +201,9 @@
       const theme = getTheme()
       ;['dark','light'].forEach(t => {
         const btn = document.getElementById(`theme-${t}`)
-        btn.style.background = t === theme ? 'rgba(124,58,237,0.2)' : 'none'
-        btn.style.borderColor = t === theme ? 'rgba(124,58,237,0.5)' : 'var(--border)'
-        btn.style.color = t === theme ? '#c4b5fd' : 'var(--text)'
+        btn.style.background = t === theme ? 'rgba(155,0,0,0.2)' : 'none'
+        btn.style.borderColor = t === theme ? 'rgba(155,0,0,0.5)' : 'var(--border)'
+        btn.style.color = t === theme ? '#FECACA' : 'var(--text)'
       })
     }
 

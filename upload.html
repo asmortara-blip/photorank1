@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#7c3aed" />
+  <meta name="theme-color" content="#9B0000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PhotoRank – Upload Photo</title>
+  <title>Maroon Match – Upload Photo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
@@ -20,7 +20,7 @@
 
     /* Drop zone states */
     #drop-zone { transition:border-color .2s,background .2s; }
-    #drop-zone.has-preview { border-color:rgba(124,58,237,0.5);background:rgba(124,58,237,0.06); }
+    #drop-zone.has-preview { border-color:rgba(155,0,0,0.5);background:rgba(155,0,0,0.06); }
 
     /* Upload progress bar */
     @keyframes progressPulse { 0%,100%{opacity:1}50%{opacity:.6} }
@@ -30,7 +30,7 @@
     .step { display:flex;align-items:center;gap:10px;font-size:13px; }
     .step-dot { width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0; }
     .step-done .step-dot  { background:rgba(34,197,94,0.2);border:1px solid rgba(34,197,94,0.4);color:#86efac; }
-    .step-active .step-dot { background:linear-gradient(135deg,#7c3aed,#4f46e5);color:white; }
+    .step-active .step-dot { background:linear-gradient(135deg,#9B0000,#C1272D);color:white; }
     .step-pending .step-dot { background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--muted); }
     .step-done p, .step-active p { color:var(--text); }
     .step-pending p { color:var(--muted); }
@@ -42,7 +42,7 @@
   <nav class="glass-nav">
     <div style="max-width:1200px;margin:0 auto;padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;">
       <a href="index.html" style="font-size:18px;font-weight:800;letter-spacing:-.02em;text-decoration:none;color:inherit;">
-        Photo<span class="grad-text">Rank</span>
+        Maroon <span class="grad-text">Match</span>
       </a>
       <div class="desktop-links" style="display:flex;gap:8px;align-items:center;">
         <div id="nav-actions" style="display:flex;gap:8px;align-items:center;"></div>
@@ -180,12 +180,12 @@
       user-select: none;
     }
     .cat-chip-pick.selected {
-      background: linear-gradient(135deg,#7c3aed,#4f46e5);
+      background: linear-gradient(135deg,#9B0000,#C1272D);
       border-color: transparent;
       color: white;
     }
     .cat-chip-pick:hover:not(.selected) {
-      border-color: rgba(124,58,237,.4);
+      border-color: rgba(155,0,0,.4);
       color: var(--text);
     }
     .cat-chip-pick.disabled:not(.selected) {
