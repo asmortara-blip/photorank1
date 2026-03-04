@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#9B0000" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Maroon Match – Party</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="config.js"></script>
+  <script src="common.js"></script>
+  <style>
+    /* ── Photo grid ────────────────────────────────────────────────────── */
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .photo-item {
+      position: relative; border-radius: 16px; overflow: hidden;
+      background: var(--surface); border: 1px solid var(--border);
+      cursor: pointer; transition: transform .15s;
+    }
+    .photo-item:hover { transform: scale(1.02); }
+    .photo-item img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+    .photo-votes {
+      position: absolute; bottom: 8px; right: 8px;
+      background: rgba(0,0,0,.75); backdrop-filter: blur(8px);
+      border-radius: 999px; padding: 4px 10px; font-size: 13px; font-weight: 700;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .vote-btn {
+      background: none; border: none; cursor: pointer; padding: 0;
+      font-size: 16px; line-height: 1; transition: transform .12s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .vote-btn:active { transform: scale(1.3); }
+    .vote-btn.voted { filter: drop-shadow(0 0 4px rgba(239,68,68,.7)); }
+    .photo-rank {
+      position: absolute; top: 8px; left: 8px;
+      background: rgba(0,0,0,.75); backdrop-filter: blur(8px);
+      border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 800;
+    }
+
+    /* ── QR section ────────────────────────────────────────────────────── */
+    .qr-wrap {
+      background: white; border-radius: 16px; padding: 20px;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    #qr-canvas { display: block; }
+
+    /* ── Upload zone ───────────────────────────────────────────────────── */
+    .drop-zone-party {
+      border: 2px dashed rgba(155,0,0,.3); border-radius: 16px;
+      padding: 32px; text-align: center; cursor: pointer;
+      transition: border-color .2s, background .2s;
+    }
+    .drop-zone-party:hover, .drop-zone-party.drag-over {
+      border-color: rgba(155,0,0,.6); background: rgba(155,0,0,.04);
+    }
+
+    /* ── Lightbox ──────────────────────────────────────────────────────── */
+    #lightbox {
+      position: fixed; inset: 0; background: rgba(0,0,0,.9);
+      display: none; align-items: center; justify-content: center;
+      z-index: 200; padding: 24px; backdrop-filter: blur(8px);
+    }
+    #lightbox img { max-width: 100%; max-height: 85vh; border-radius: 16px; object-fit: contain; }
+    .modal-backdrop { position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:100;padding:24px;backdrop-filter:blur(4px); }
+
+    /* ── Share button pulse ────────────────────────────────────────────── */
+    @keyframes pulseGlow {
+      0%,100% { box-shadow: 0 0 0 0 rgba(155,0,0,.4); }
+      50%      { box-shadow: 0 0 0 10px rgba(155,0,0,0); }
+    }
+    .pulse-btn { animation: pulseGlow 2s infinite; }
+  </style>
+</head>
+<body>
+
+  <nav class="glass-nav">
+    <div style="max-width:1200px;margin:0 auto;padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;">
+      <a href="parties.html" style="font-size:18px;font-weight:800;letter-spacing:-.02em;text-decoration:none;color:inherit;">← <span class="grad-text">Parties</span></a>
+      <div class="desktop-links" style="display:flex;gap:8px;align-items:center;">
+        <a href="vote.html" style="color:var(--muted);text-decoration:none;font-size:14px;padding:6px 12px;border-radius:8px;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">Vote</a>
+        <div id="nav-actions" style="display:flex;gap:8px;align-items:center;"></div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Loading -->
+  <div id="loading" style="display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 60px);">
+    <div style="width:36px;height:36px;border-radius:50%;border:2px solid rgba(155,0,0,.3);border-top-color:#9B0000;animation:spin .8s linear infinite;"></div>
+  </div>
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
+  <!-- Not found -->
+  <div id="not-found" style="display:none;align-items:center;justify-content:center;min-height:calc(100vh-60px);flex-direction:column;gap:16px;text-align:center;padding:60px 24px;">
+    <div style="font-size:48px;">🤔</div>
+    <h2 style="font-size:20px;font-weight:700;">Party not found</h2>
+    <a href="parties.html" class="btn-accent" style="text-decoration:none;">Back to Parties</a>
+  </div>
+
+  <!-- Main content -->
+  <div id="content" style="display:none;max-width:960px;margin:0 auto;padding:32px 24px 120px;">
+
+    <!-- Party hero -->
+    <div class="glass-card" style="padding:0;overflow:hidden;margin-bottom:24px;">
+      <div id="cover-wrap"></div>
+      <div style="padding:24px;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+          <div style="flex:1;min-width:200px;">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+              <h1 id="party-name" style="font-size:clamp(20px,4vw,28px);font-weight:900;letter-spacing:-.02em;"></h1>
+              <span id="party-rank-badge" style="font-size:12px;border-radius:999px;padding:3px 10px;font-weight:700;background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.3);color:#fbbf24;"></span>
+            </div>
+            <p id="party-meta" style="color:var(--muted);font-size:14px;margin-bottom:16px;"></p>
+            <div style="display:flex;gap:20px;flex-wrap:wrap;">
+              <div><p id="stat-votes" class="grad-text" style="font-size:28px;font-weight:900;margin-bottom:2px;"></p><p style="color:var(--muted);font-size:12px;">Total Votes</p></div>
+              <div><p id="stat-photos" style="font-size:28px;font-weight:900;margin-bottom:2px;"></p><p style="color:var(--muted);font-size:12px;">Photos</p></div>
+              <div><p id="stat-rank" style="font-size:28px;font-weight:900;margin-bottom:2px;"></p><p style="color:var(--muted);font-size:12px;">Rank</p></div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
+            <button onclick="openUploadModal()" class="btn-accent pulse-btn" style="font-size:14px;">📸 Add Your Photo</button>
+            <button onclick="openQrModal()" class="btn-ghost" style="font-size:13px;">📱 Show QR Code</button>
+            <button onclick="shareParty()" class="btn-ghost" style="font-size:13px;" id="share-btn">🔗 Share</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sort -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+      <h2 style="font-size:18px;font-weight:700;" id="photos-title">Photos</h2>
+      <div style="display:flex;gap:8px;">
+        <button onclick="setSort('top',this)" id="sort-top" class="btn-ghost" style="font-size:13px;padding:6px 14px;background:var(--surface);border:1px solid var(--border);">🔥 Top</button>
+        <button onclick="setSort('new',this)" id="sort-new" class="btn-ghost" style="font-size:13px;padding:6px 14px;">New</button>
+      </div>
+    </div>
+
+    <!-- Photo grid -->
+    <div id="photos-loading" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
+      <div class="skeleton" style="aspect-ratio:1;border-radius:16px;"></div>
+      <div class="skeleton" style="aspect-ratio:1;border-radius:16px;"></div>
+      <div class="skeleton" style="aspect-ratio:1;border-radius:16px;"></div>
+    </div>
+    <div id="photo-grid" class="photo-grid" style="display:none;"></div>
+    <div id="no-photos" style="display:none;text-align:center;padding:48px 24px;">
+      <div style="font-size:48px;margin-bottom:12px;">📸</div>
+      <p style="color:var(--muted);font-size:15px;margin-bottom:16px;">No photos yet. Be the first to add one!</p>
+      <button onclick="openUploadModal()" class="btn-accent">Add First Photo</button>
+    </div>
+
+    <!-- New party welcome (shown after create) -->
+    <div id="welcome-banner" style="display:none;background:rgba(155,0,0,.1);border:1px solid rgba(155,0,0,.25);border-radius:16px;padding:20px 24px;margin-top:24px;text-align:center;">
+      <p style="font-size:15px;font-weight:600;margin-bottom:6px;">🎉 Party room created!</p>
+      <p style="color:var(--muted);font-size:13px;">Show the QR code at your event so people can add photos. Share the link in group chats to get votes rolling in.</p>
+    </div>
+
+  </div>
+
+  <!-- Lightbox -->
+  <div id="lightbox" onclick="closeLightbox()">
+    <div style="position:relative;max-width:600px;width:100%;" onclick="event.stopPropagation()">
+      <img id="lightbox-img" src="" alt="" />
+      <div id="lightbox-caption" style="text-align:center;margin-top:12px;color:rgba(255,255,255,.7);font-size:14px;"></div>
+      <button onclick="closeLightbox()" style="position:absolute;top:-16px;right:-16px;width:36px;height:36px;background:rgba(30,30,30,.9);border:1px solid rgba(255,255,255,.15);border-radius:50%;color:white;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;">×</button>
+    </div>
+  </div>
+
+  <!-- QR Modal -->
+  <div id="qr-modal" class="modal-backdrop" style="display:none;">
+    <div class="glass-card" style="width:100%;max-width:360px;padding:32px;text-align:center;">
+      <h3 style="font-size:20px;font-weight:800;margin-bottom:6px;">Scan to Add Photos</h3>
+      <p style="color:var(--muted);font-size:13px;margin-bottom:20px;">Display this at your party so guests can upload photos directly.</p>
+      <div style="display:flex;justify-content:center;margin-bottom:16px;">
+        <div class="qr-wrap"><canvas id="qr-canvas"></canvas></div>
+      </div>
+      <p id="qr-url" style="font-size:11px;color:var(--muted);word-break:break-all;margin-bottom:16px;"></p>
+      <div style="display:flex;gap:8px;">
+        <button onclick="downloadQr()" class="btn-accent" style="flex:1;font-size:13px;">⬇ Download QR</button>
+        <button onclick="closeQrModal()" class="btn-ghost" style="padding:11px 16px;font-size:13px;">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload Modal -->
+  <div id="upload-modal" class="modal-backdrop" style="display:none;">
+    <div class="glass-card" style="width:100%;max-width:420px;padding:32px;max-height:90vh;overflow-y:auto;">
+      <h3 style="font-size:20px;font-weight:800;margin-bottom:6px;">Add Your Photo</h3>
+      <p style="color:var(--muted);font-size:13px;margin-bottom:20px;">Upload a photo from this party. Keep it clean — it'll be visible to all of UChicago.</p>
+
+      <div id="upload-drop" class="drop-zone-party" onclick="document.getElementById('upload-file').click()"
+        ondragover="event.preventDefault();this.classList.add('drag-over')"
+        ondragleave="this.classList.remove('drag-over')"
+        ondrop="event.preventDefault();this.classList.remove('drag-over');handleDrop(event)">
+        <div id="upload-empty">
+          <div style="font-size:36px;margin-bottom:8px;">📷</div>
+          <p style="font-weight:600;margin-bottom:4px;">Drop photo here</p>
+          <p style="color:var(--muted);font-size:13px;">or tap to browse</p>
+        </div>
+        <div id="upload-preview" style="display:none;">
+          <img id="upload-preview-img" style="width:100%;max-height:200px;object-fit:cover;border-radius:10px;" src="" alt="" />
+        </div>
+        <input id="upload-file" type="file" accept="image/*" style="display:none;" onchange="handleFileSelect(event)" />
+      </div>
+
+      <div style="margin-top:16px;">
+        <label style="display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:500;">Caption (optional)</label>
+        <input id="upload-caption" type="text" maxlength="100" placeholder="e.g. Best night of the year 🔥" class="input" />
+      </div>
+
+      <div id="upload-progress" style="display:none;margin-top:12px;">
+        <div class="progress-bar-track" style="height:6px;"><div class="progress-bar-fill" id="upload-bar" style="width:0%;height:100%;"></div></div>
+        <p id="upload-progress-label" style="font-size:12px;color:var(--muted);margin-top:6px;"></p>
+      </div>
+      <p id="upload-error" style="display:none;color:#f87171;font-size:13px;margin-top:8px;"></p>
+
+      <div style="display:flex;gap:10px;margin-top:16px;">
+        <button id="upload-btn" onclick="uploadPhoto()" class="btn-accent" style="flex:1;font-size:14px;">Upload Photo</button>
+        <button onclick="closeUploadModal()" class="btn-ghost" style="padding:11px 16px;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile nav -->
+  <nav class="mobile-nav">
+    <a href="vote.html" class="mobile-nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Vote</a>
+    <a href="leaderboard.html" class="mobile-nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>Ranks</a>
+    <a href="parties.html" class="mobile-nav-item active"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>Parties</a>
+    <a href="profile.html" class="mobile-nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>Profile</a>
+  </nav>
+
+  <script>
+    let partyId = null, party = null, photos = [], currentUser = null
+    let votedPhotoIds = new Set(), sortMode = 'top'
+    let uploadFile = null
+
+    const params = new URLSearchParams(location.search)
+    partyId = params.get('id')
+    const isNew = params.get('new') === '1'
+    initNav()
+
+    async function init() {
+      if (!partyId) { flip('not-found'); return }
+      const { data: { user } } = await getSupabase().auth.getUser()
+      currentUser = user
+
+      const { data } = await getSupabase().from('parties').select('*').eq('id', partyId).single()
+      if (!data) { flip('not-found'); return }
+      party = data
+
+      // Rank
+      const { count: rankAbove } = await getSupabase().from('parties')
+        .select('*', { count:'exact', head:true }).gt('total_votes', party.total_votes)
+      const rank = (rankAbove ?? 0) + 1
+
+      // Render hero
+      document.title = `${party.name} – Maroon Match`
+      document.getElementById('party-name').textContent = party.name
+      document.getElementById('party-meta').textContent =
+        `${party.host} · ${new Date(party.date).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}${party.location ? ' · ' + party.location : ''}`
+      document.getElementById('stat-votes').textContent  = party.total_votes
+      document.getElementById('stat-photos').textContent = party.photo_count
+      document.getElementById('stat-rank').textContent   = `#${rank}`
+      document.getElementById('party-rank-badge').textContent = rank <= 3 ? ['🥇','🥈','🥉'][rank-1] + ` #${rank}` : `#${rank}`
+
+      if (party.cover_url) {
+        document.getElementById('cover-wrap').innerHTML =
+          `<img src="${escapeHtml(party.cover_url)}" style="width:100%;height:200px;object-fit:cover;" />`
+      }
+
+      if (isNew) document.getElementById('welcome-banner').style.display = 'block'
+
+      // Voted photos
+      if (currentUser) {
+        const { data: myVotes } = await getSupabase()
+          .from('party_photo_votes').select('photo_id').eq('voter_id', currentUser.id)
+        votedPhotoIds = new Set((myVotes ?? []).map(v => v.photo_id))
+      }
+
+      await loadPhotos()
+      flip('content')
+
+      // Auto-open QR on new party
+      if (isNew) setTimeout(openQrModal, 500)
+
+      // Auto-open upload if ?upload=1
+      if (params.get('upload') === '1') setTimeout(openUploadModal, 300)
+    }
+
+    async function loadPhotos() {
+      const orderCol = sortMode === 'top' ? 'votes' : 'created_at'
+      const { data } = await getSupabase()
+        .from('party_photos').select('*').eq('party_id', partyId)
+        .order(orderCol, { ascending: false })
+      photos = data ?? []
+      document.getElementById('photos-title').textContent = `Photos (${photos.length})`
+      renderPhotos()
+    }
+
+    function setSort(mode, btn) {
+      sortMode = mode
+      document.getElementById('sort-top').style.background = mode === 'top' ? 'var(--surface)' : ''
+      document.getElementById('sort-top').style.borderColor = mode === 'top' ? 'var(--border)' : 'transparent'
+      document.getElementById('sort-new').style.background = mode === 'new' ? 'var(--surface)' : ''
+      document.getElementById('sort-new').style.borderColor = mode === 'new' ? 'var(--border)' : 'transparent'
+      loadPhotos()
+    }
+
+    function renderPhotos() {
+      document.getElementById('photos-loading').style.display = 'none'
+      if (!photos.length) {
+        document.getElementById('photo-grid').style.display = 'none'
+        document.getElementById('no-photos').style.display = 'block'
+        return
+      }
+      document.getElementById('no-photos').style.display = 'none'
+      const grid = document.getElementById('photo-grid')
+      grid.style.display = 'grid'
+      grid.innerHTML = photos.map((p, i) => {
+        const voted = votedPhotoIds.has(p.id)
+        const rankLabel = i < 3 ? ['🥇','🥈','🥉'][i] : `#${i+1}`
+        return `
+          <div class="photo-item" id="photo-${p.id}">
+            <img src="${escapeHtml(p.photo_url)}" alt="" loading="lazy" onclick="openLightbox('${escapeHtml(p.photo_url)}','${escapeHtml(p.caption||'')}')" />
+            <span class="photo-rank">${rankLabel}</span>
+            <div class="photo-votes">
+              <button class="vote-btn ${voted?'voted':''}" onclick="event.stopPropagation();toggleVote('${p.id}')" id="vbtn-${p.id}">${voted?'❤️':'🤍'}</button>
+              <span id="vcount-${p.id}">${p.votes}</span>
+            </div>
+            ${p.caption ? `<div style="padding:8px 10px 10px;font-size:12px;color:var(--muted);">${escapeHtml(p.caption)}</div>` : ''}
+          </div>`
+      }).join('')
+    }
+
+    // ── Vote on photo ──────────────────────────────────────────────────────────
+    async function toggleVote(photoId) {
+      if (!currentUser) { window.location.href = 'index.html'; return }
+      const wasVoted = votedPhotoIds.has(photoId)
+      const sb = getSupabase()
+
+      // Optimistic update
+      const btn   = document.getElementById(`vbtn-${photoId}`)
+      const count = document.getElementById(`vcount-${photoId}`)
+      const photo = photos.find(p => p.id === photoId)
+      if (!photo) return
+
+      if (wasVoted) {
+        votedPhotoIds.delete(photoId)
+        btn.textContent = '🤍'; btn.classList.remove('voted')
+        count.textContent = photo.votes - 1
+        photo.votes -= 1
+        await sb.from('party_photo_votes').delete().eq('voter_id', currentUser.id).eq('photo_id', photoId)
+        await sb.from('party_photos').update({ votes: photo.votes }).eq('id', photoId)
+      } else {
+        votedPhotoIds.add(photoId)
+        btn.textContent = '❤️'; btn.classList.add('voted')
+        count.textContent = photo.votes + 1
+        photo.votes += 1
+        await sb.from('party_photo_votes').insert({ voter_id: currentUser.id, photo_id: photoId })
+        await sb.from('party_photos').update({ votes: photo.votes }).eq('id', photoId)
+      }
+
+      // Update party total
+      const newTotal = photos.reduce((s, p) => s + p.votes, 0)
+      await sb.from('parties').update({ total_votes: newTotal }).eq('id', partyId)
+      document.getElementById('stat-votes').textContent = newTotal
+    }
+
+    // ── Upload photo ───────────────────────────────────────────────────────────
+    function openUploadModal() {
+      if (!currentUser) { window.location.href = 'index.html'; return }
+      document.getElementById('upload-modal').style.display = 'flex'
+    }
+    function closeUploadModal() {
+      document.getElementById('upload-modal').style.display = 'none'
+      uploadFile = null
+      document.getElementById('upload-empty').style.display = 'block'
+      document.getElementById('upload-preview').style.display = 'none'
+      document.getElementById('upload-caption').value = ''
+      document.getElementById('upload-error').style.display = 'none'
+      document.getElementById('upload-progress').style.display = 'none'
+    }
+    function handleDrop(e) { const f = e.dataTransfer.files[0]; if (f) setUploadFile(f) }
+    function handleFileSelect(e) { const f = e.target.files[0]; if (f) setUploadFile(f) }
+    async function setUploadFile(file) {
+      uploadFile = await resizeImage(file)
+      const url = URL.createObjectURL(uploadFile)
+      document.getElementById('upload-empty').style.display = 'none'
+      document.getElementById('upload-preview').style.display = 'block'
+      document.getElementById('upload-preview-img').src = url
+    }
+
+    async function uploadPhoto() {
+      if (!uploadFile) {
+        document.getElementById('upload-error').textContent = 'Please select a photo.'
+        document.getElementById('upload-error').style.display = 'block'; return
+      }
+      const btn = document.getElementById('upload-btn')
+      btn.textContent = 'Uploading…'; btn.disabled = true
+      document.getElementById('upload-progress').style.display = 'block'
+      document.getElementById('upload-bar').style.width = '30%'
+      document.getElementById('upload-progress-label').textContent = 'Uploading photo…'
+
+      const sb = getSupabase()
+      const ext = (uploadFile.name?.split('.').pop() || 'jpg').toLowerCase()
+      const filePath = `parties/${partyId}/${Date.now()}_${currentUser.id}.${ext}`
+
+      const { error: uploadErr } = await sb.storage.from('photos').upload(filePath, uploadFile, { upsert: false })
+      if (uploadErr) {
+        document.getElementById('upload-error').textContent = 'Upload failed: ' + uploadErr.message
+        document.getElementById('upload-error').style.display = 'block'
+        btn.textContent = 'Upload Photo'; btn.disabled = false; return
+      }
+
+      document.getElementById('upload-bar').style.width = '70%'
+      document.getElementById('upload-progress-label').textContent = 'Saving…'
+
+      const { data: { publicUrl } } = sb.storage.from('photos').getPublicUrl(filePath)
+      const caption = document.getElementById('upload-caption').value.trim()
+
+      const { error: insertErr } = await sb.from('party_photos').insert({
+        party_id: partyId, uploader_id: currentUser.id, photo_url: publicUrl,
+        caption: caption || null
+      })
+      if (insertErr) {
+        document.getElementById('upload-error').textContent = insertErr.message
+        document.getElementById('upload-error').style.display = 'block'
+        btn.textContent = 'Upload Photo'; btn.disabled = false; return
+      }
+
+      // Update photo count on party
+      await sb.from('parties').update({ photo_count: (party.photo_count || 0) + 1 }).eq('id', partyId)
+      party.photo_count += 1
+      document.getElementById('stat-photos').textContent = party.photo_count
+
+      // Set as cover if first photo
+      if (party.photo_count === 1) {
+        await sb.from('parties').update({ cover_url: publicUrl }).eq('id', partyId)
+      }
+
+      document.getElementById('upload-bar').style.width = '100%'
+      document.getElementById('upload-progress-label').textContent = 'Done!'
+
+      setTimeout(() => { closeUploadModal(); loadPhotos() }, 600)
+    }
+
+    // ── QR code ────────────────────────────────────────────────────────────────
+    function openQrModal() {
+      const url = `${location.origin}${location.pathname}?id=${partyId}&upload=1`
+      document.getElementById('qr-url').textContent = url
+      QRCode.toCanvas(document.getElementById('qr-canvas'), url, { width: 200, margin: 2, color: { dark: '#000000', light: '#ffffff' } })
+      document.getElementById('qr-modal').style.display = 'flex'
+    }
+    function closeQrModal() { document.getElementById('qr-modal').style.display = 'none' }
+
+    function downloadQr() {
+      const canvas = document.getElementById('qr-canvas')
+      const a = document.createElement('a')
+      a.download = `${party.name.replace(/\s+/g,'-')}-qr.png`
+      a.href = canvas.toDataURL('image/png'); a.click()
+    }
+
+    // ── Share ──────────────────────────────────────────────────────────────────
+    async function shareParty() {
+      const url = `${location.origin}${location.pathname}?id=${partyId}`
+      if (navigator.share) {
+        try { await navigator.share({ title: `${party.name} – Maroon Match`, text: `Vote on photos from ${party.name}!`, url }); return }
+        catch {}
+      }
+      try { await navigator.clipboard.writeText(url) } catch { prompt('Copy:', url); return }
+      const btn = document.getElementById('share-btn')
+      btn.textContent = '✓ Copied!'; setTimeout(() => btn.textContent = '🔗 Share', 2000)
+    }
+
+    // ── Lightbox ───────────────────────────────────────────────────────────────
+    function openLightbox(src, caption) {
+      document.getElementById('lightbox-img').src = src
+      document.getElementById('lightbox-caption').textContent = caption
+      document.getElementById('lightbox').style.display = 'flex'
+    }
+    function closeLightbox() { document.getElementById('lightbox').style.display = 'none' }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox() })
+
+    function flip(id) {
+      ;['loading','not-found','content'].forEach(i => document.getElementById(i).style.display = 'none')
+      document.getElementById(id).style.display = id === 'content' ? 'block' : id === 'not-found' ? 'flex' : 'flex'
+    }
+
+    init()
+  </script>
+</body>
+</html>

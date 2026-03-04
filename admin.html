@@ -63,7 +63,7 @@
     </div>
 
     <!-- Tabs -->
-    <div class="flex gap-1 mb-6 bg-gray-900 p-1 rounded-xl w-fit">
+    <div class="flex gap-1 mb-6 bg-gray-900 p-1 rounded-xl w-fit flex-wrap">
       <button onclick="switchTab('reports')" id="tab-reports"
         class="px-5 py-2 rounded-lg text-sm font-medium transition-colors bg-white text-gray-950">
         Reports
@@ -72,11 +72,26 @@
         class="px-5 py-2 rounded-lg text-sm font-medium transition-colors text-gray-400 hover:text-white">
         All Users
       </button>
+      <button onclick="switchTab('weekly')" id="tab-weekly"
+        class="px-5 py-2 rounded-lg text-sm font-medium transition-colors text-gray-400 hover:text-white">
+        🏆 Top 5 This Week
+      </button>
     </div>
 
     <!-- Reports tab -->
     <div id="tab-content-reports">
       <div id="reports-list"></div>
+    </div>
+
+    <!-- Weekly top 5 tab -->
+    <div id="tab-content-weekly" class="hidden">
+      <div class="mb-4 flex items-center justify-between flex-wrap gap-3">
+        <p class="text-sm text-gray-400">Top 5 party photos this week — download and post to Instagram 📸</p>
+        <button onclick="downloadTop5()" class="px-4 py-2 text-sm bg-red-900 hover:bg-red-800 text-white rounded-lg transition-colors">
+          ⬇ Download All 5
+        </button>
+      </div>
+      <div id="weekly-list" class="grid grid-cols-2 sm:grid-cols-3 gap-4"></div>
     </div>
 
     <!-- Users tab -->
@@ -331,8 +346,43 @@
       await Promise.all([loadStats(), loadReports(), loadUsers()])
     }
 
+    async function loadWeeklyTop5() {
+      const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7)
+      const { data: photos } = await getSupabase()
+        .from('party_photos')
+        .select('id, photo_url, caption, votes, party_id, parties(name,host)')
+        .gte('created_at', weekAgo.toISOString())
+        .order('votes', { ascending: false })
+        .limit(5)
+
+      const list = document.getElementById('weekly-list')
+      if (!photos || !photos.length) {
+        list.innerHTML = '<p class="text-gray-600 text-sm col-span-3">No party photos this week yet.</p>'
+        return
+      }
+      list.innerHTML = photos.map((p, i) => `
+        <div class="relative bg-gray-900 rounded-xl overflow-hidden">
+          <img src="${escapeHtml(p.photo_url)}" class="w-full aspect-square object-cover" />
+          <div class="absolute top-2 left-2 bg-black/70 rounded-full px-2 py-0.5 text-xs font-bold">#${i+1}</div>
+          <div class="p-3">
+            <p class="text-xs text-gray-400 truncate">${escapeHtml(p.parties?.name ?? '?')}</p>
+            ${p.caption ? `<p class="text-xs text-gray-500 truncate mt-0.5">${escapeHtml(p.caption)}</p>` : ''}
+            <p class="text-xs font-bold mt-1">❤️ ${p.votes} votes</p>
+          </div>
+          <a href="${escapeHtml(p.photo_url)}" download="top-${i+1}.jpg" target="_blank"
+            class="absolute bottom-2 right-2 bg-black/60 hover:bg-black/80 rounded-lg px-2 py-1 text-xs text-gray-300 transition-colors">
+            ⬇
+          </a>
+        </div>
+      `).join('')
+    }
+
+    function downloadTop5() {
+      document.querySelectorAll('#weekly-list a[download]').forEach(a => a.click())
+    }
+
     function switchTab(tab) {
-      const tabs = ['reports', 'users']
+      const tabs = ['reports', 'users', 'weekly']
       tabs.forEach(t => {
         document.getElementById(`tab-content-${t}`).classList.toggle('hidden', t !== tab)
         const btn = document.getElementById(`tab-${t}`)
@@ -340,6 +390,7 @@
           ? 'px-5 py-2 rounded-lg text-sm font-medium transition-colors bg-white text-gray-950'
           : 'px-5 py-2 rounded-lg text-sm font-medium transition-colors text-gray-400 hover:text-white'
       })
+      if (tab === 'weekly') loadWeeklyTop5()
     }
 
     init()
