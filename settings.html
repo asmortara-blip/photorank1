@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#7c3aed" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PhotoRank – Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script src="common.js"></script>
+</head>
+<body>
+
+  <nav class="glass-nav">
+    <div style="max-width:900px;margin:0 auto;padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;">
+      <a href="index.html" style="font-size:18px;font-weight:800;letter-spacing:-.02em;text-decoration:none;color:inherit;">Photo<span class="grad-text">Rank</span></a>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <a href="profile.html" style="color:var(--muted);text-decoration:none;font-size:14px;padding:6px 12px;border-radius:8px;" onmouseover="this.style.color='white'" onmouseout="this.style.color='var(--muted)'">← Profile</a>
+        <div id="nav-actions" style="display:flex;gap:8px;align-items:center;"></div>
+      </div>
+    </div>
+  </nav>
+
+  <div id="loading" style="display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 60px);">
+    <div style="width:32px;height:32px;border-radius:50%;border:2px solid rgba(124,58,237,0.3);border-top-color:#7c3aed;animation:spin .8s linear infinite;"></div>
+  </div>
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
+  <div id="content" style="display:none;max-width:640px;margin:0 auto;padding:48px 24px 80px;">
+    <h1 style="font-size:28px;font-weight:900;letter-spacing:-.02em;margin-bottom:6px;">Settings</h1>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:40px;">Manage your account and preferences</p>
+
+    <!-- Profile section -->
+    <div class="settings-section">
+      <p class="settings-label">Profile</p>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div>
+          <label style="display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:500;">Display name</label>
+          <div style="display:flex;gap:10px;">
+            <input id="new-username" type="text" maxlength="30" class="input" style="flex:1;" />
+            <button onclick="saveUsername()" class="btn-accent" style="padding:0 20px;flex-shrink:0;font-size:14px;">Save</button>
+          </div>
+          <p id="username-msg" style="font-size:12px;margin-top:6px;display:none;"></p>
+        </div>
+        <div>
+          <label style="display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:500;">Bio <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+          <div style="display:flex;gap:10px;align-items:flex-start;">
+            <textarea id="new-bio" maxlength="160" rows="2" class="input" style="flex:1;resize:vertical;min-height:64px;"></textarea>
+            <button onclick="saveBio()" class="btn-ghost" style="padding:0 20px;height:44px;flex-shrink:0;font-size:14px;">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Appearance -->
+    <div class="settings-section">
+      <p class="settings-label">Appearance</p>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <p style="font-weight:500;font-size:14px;">Theme</p>
+          <p style="color:var(--muted);font-size:13px;">Switch between dark and light mode</p>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="applyTheme('dark');updateThemeIcon();highlightTheme()" id="theme-dark"
+            style="padding:7px 16px;border-radius:8px;border:1px solid var(--border);font-size:13px;font-weight:500;cursor:pointer;background:none;color:var(--text);transition:all .15s;">
+            🌙 Dark
+          </button>
+          <button onclick="applyTheme('light');updateThemeIcon();highlightTheme()" id="theme-light"
+            style="padding:7px 16px;border-radius:8px;border:1px solid var(--border);font-size:13px;font-weight:500;cursor:pointer;background:none;color:var(--text);transition:all .15s;">
+            ☀️ Light
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Participation -->
+    <div class="settings-section">
+      <p class="settings-label">Participation</p>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;">
+        <div>
+          <p style="font-weight:500;font-size:14px;">Pause my profile</p>
+          <p style="color:var(--muted);font-size:13px;line-height:1.6;">Hide yourself from matchups temporarily. Your ELO and rank are preserved.</p>
+        </div>
+        <div id="opted-out-toggle" onclick="toggleOptOut()" style="flex-shrink:0;">
+          <div class="toggle-track" id="toggle-track">
+            <div class="toggle-thumb"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Invite link -->
+    <div class="settings-section">
+      <p class="settings-label">Invite Friends</p>
+      <p style="color:var(--muted);font-size:14px;margin-bottom:14px;">Share your invite link and track how many people you've brought in.</p>
+      <div style="display:flex;gap:8px;">
+        <input id="invite-url" readonly class="input" style="flex:1;font-size:13px;color:var(--muted);" value="Loading…" />
+        <button onclick="copyInvite()" class="btn-ghost" style="flex-shrink:0;padding:0 16px;font-size:13px;" id="copy-btn">Copy</button>
+      </div>
+      <p style="color:var(--muted);font-size:13px;margin-top:10px;">
+        People you've invited: <span id="invite-count" style="color:var(--text);font-weight:600;">—</span>
+      </p>
+    </div>
+
+    <!-- Change email -->
+    <div class="settings-section">
+      <p class="settings-label">Account</p>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div>
+          <label style="display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:500;">Email address</label>
+          <div style="display:flex;gap:10px;">
+            <input id="new-email" type="email" class="input" style="flex:1;" />
+            <button onclick="saveEmail()" class="btn-ghost" style="padding:0 18px;flex-shrink:0;font-size:14px;">Update</button>
+          </div>
+          <p id="email-msg" style="font-size:12px;margin-top:6px;display:none;"></p>
+        </div>
+        <div>
+          <label style="display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:500;">New password</label>
+          <div style="display:flex;gap:10px;">
+            <input id="new-password" type="password" placeholder="Min 6 characters" class="input" style="flex:1;" />
+            <button onclick="savePassword()" class="btn-ghost" style="padding:0 18px;flex-shrink:0;font-size:14px;">Update</button>
+          </div>
+          <p id="pw-msg" style="font-size:12px;margin-top:6px;display:none;"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Danger zone -->
+    <div class="settings-section" style="border-color:rgba(239,68,68,0.2);">
+      <p class="settings-label" style="color:#f87171;">Danger Zone</p>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;">
+        <div>
+          <p style="font-weight:500;font-size:14px;">Delete my account</p>
+          <p style="color:var(--muted);font-size:13px;line-height:1.6;">Permanently removes your photo, profile, and all vote data. Cannot be undone.</p>
+        </div>
+        <button onclick="promptDelete()" class="danger-btn">Delete Account</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete confirm modal -->
+  <div id="delete-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);display:none;align-items:center;justify-content:center;z-index:100;padding:24px;backdrop-filter:blur(6px);">
+    <div class="glass-card" style="width:100%;max-width:380px;padding:36px;text-align:center;">
+      <div style="font-size:44px;margin-bottom:16px;">⚠️</div>
+      <h3 style="font-size:20px;font-weight:800;margin-bottom:8px;">Delete your account?</h3>
+      <p style="color:var(--muted);font-size:14px;line-height:1.7;margin-bottom:24px;">This will permanently delete your profile, photo, and all vote history. Type <strong style="color:var(--text);">DELETE</strong> to confirm.</p>
+      <input id="delete-confirm-input" type="text" placeholder="Type DELETE" class="input" style="margin-bottom:16px;text-align:center;font-weight:700;letter-spacing:.05em;" />
+      <div style="display:flex;gap:10px;">
+        <button onclick="confirmDelete()" class="danger-btn" style="flex:1;padding:12px;">Delete Forever</button>
+        <button onclick="closeModal()" class="btn-ghost" style="padding:12px 20px;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile nav -->
+  <nav class="mobile-nav">
+    <a href="vote.html" class="mobile-nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Vote</a>
+    <a href="leaderboard.html" class="mobile-nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>Ranks</a>
+    <a href="profile.html" class="mobile-nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>Profile</a>
+  </nav>
+
+  <script>
+    let currentUser = null, currentProfile = null
+
+    initNav()
+
+    async function init() {
+      const sb = getSupabase()
+      const { data: { user } } = await sb.auth.getUser()
+      if (!user) { window.location.href = 'index.html'; return }
+      currentUser = user
+
+      const { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).single()
+      currentProfile = profile
+
+      document.getElementById('new-username').value = profile?.username ?? ''
+      document.getElementById('new-bio').value = profile?.bio ?? ''
+      document.getElementById('new-email').value = user.email ?? ''
+
+      // Opted-out toggle
+      setToggle(profile?.opted_out ?? false)
+
+      // Invite
+      const code = profile?.invite_code || await getOrCreateInviteCode(user.id)
+      const base = window.location.href.replace('settings.html', 'index.html')
+      document.getElementById('invite-url').value = `${base}?invite=${code}`
+      document.getElementById('invite-count').textContent = profile?.invite_count ?? 0
+
+      highlightTheme()
+      document.getElementById('loading').style.display = 'none'
+      document.getElementById('content').style.display = 'block'
+    }
+
+    function highlightTheme() {
+      const theme = getTheme()
+      ;['dark','light'].forEach(t => {
+        const btn = document.getElementById(`theme-${t}`)
+        btn.style.background = t === theme ? 'rgba(124,58,237,0.2)' : 'none'
+        btn.style.borderColor = t === theme ? 'rgba(124,58,237,0.5)' : 'var(--border)'
+        btn.style.color = t === theme ? '#c4b5fd' : 'var(--text)'
+      })
+    }
+
+    function setToggle(isOptedOut) {
+      const track = document.getElementById('toggle-track')
+      if (isOptedOut) track.classList.add('on'); else track.classList.remove('on')
+    }
+
+    async function toggleOptOut() {
+      const newVal = !currentProfile.opted_out
+      await getSupabase().from('profiles').update({ opted_out: newVal }).eq('id', currentUser.id)
+      currentProfile.opted_out = newVal
+      setToggle(newVal)
+      showToast(newVal ? 'Profile paused — you\'re hidden from matchups.' : 'Profile active — you\'re back in matchups!', newVal ? 'warning' : 'success')
+    }
+
+    async function saveUsername() {
+      const val = document.getElementById('new-username').value.trim()
+      if (!val) return
+      const { error } = await getSupabase().from('profiles').update({ username: val }).eq('id', currentUser.id)
+      setMsg('username-msg', error ? error.message : 'Username updated!', !error)
+    }
+
+    async function saveBio() {
+      const val = document.getElementById('new-bio').value.trim()
+      await getSupabase().from('profiles').update({ bio: val }).eq('id', currentUser.id)
+      showToast('Bio saved!', 'success')
+    }
+
+    async function saveEmail() {
+      const val = document.getElementById('new-email').value.trim()
+      if (!val) return
+      const { error } = await getSupabase().auth.updateUser({ email: val })
+      setMsg('email-msg', error ? error.message : 'Check your new email for a confirmation link.', !error)
+    }
+
+    async function savePassword() {
+      const val = document.getElementById('new-password').value
+      if (val.length < 6) { setMsg('pw-msg', 'Password must be at least 6 characters.', false); return }
+      const { error } = await getSupabase().auth.updateUser({ password: val })
+      setMsg('pw-msg', error ? error.message : 'Password updated!', !error)
+      if (!error) document.getElementById('new-password').value = ''
+    }
+
+    async function copyInvite() {
+      const url = document.getElementById('invite-url').value
+      try { await navigator.clipboard.writeText(url) } catch { prompt('Copy this link:', url); return }
+      const btn = document.getElementById('copy-btn')
+      btn.textContent = 'Copied!'
+      setTimeout(() => { btn.textContent = 'Copy' }, 2000)
+    }
+
+    function promptDelete() {
+      document.getElementById('delete-confirm-input').value = ''
+      document.getElementById('delete-modal').style.display = 'flex'
+    }
+    function closeModal() { document.getElementById('delete-modal').style.display = 'none' }
+
+    async function confirmDelete() {
+      const input = document.getElementById('delete-confirm-input').value.trim()
+      if (input !== 'DELETE') { showToast('Type DELETE exactly to confirm.', 'error'); return }
+
+      const sb = getSupabase()
+
+      // Delete photo from storage
+      if (currentProfile?.photo_url) {
+        const path = currentProfile.photo_url.split('/photos/')[1]
+        if (path) await sb.storage.from('photos').remove([path])
+      }
+
+      // Delete profile row (cascades to votes, elo_history, reports)
+      await sb.from('profiles').delete().eq('id', currentUser.id)
+      await sb.auth.signOut()
+      window.location.href = 'index.html'
+    }
+
+    function setMsg(id, msg, ok) {
+      const el = document.getElementById(id)
+      el.textContent = msg
+      el.style.color = ok ? '#86efac' : '#f87171'
+      el.style.display = 'block'
+      setTimeout(() => { el.style.display = 'none' }, 4000)
+    }
+
+    init()
+  </script>
+</body>
+</html>

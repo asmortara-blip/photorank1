@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#7c3aed" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PhotoRank – Match History</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script src="common.js"></script>
+  <style>
+    /* ── Filter bar ──────────────────────────────────────────────────────── */
+    .filter-bar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .filter-btn {
+      padding: 6px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .filter-btn.active {
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      border-color: transparent;
+      color: white;
+    }
+    .filter-btn:hover:not(.active) { border-color: rgba(124,58,237,.4); color: var(--text); }
+
+    /* ── Match row ──────────────────────────────────────────────────────── */
+    .match-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      transition: border-color .15s, transform .15s;
+    }
+    .match-card:hover { border-color: rgba(124,58,237,.35); transform: translateY(-1px); }
+
+    .match-card-inner {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 0;
+    }
+    .match-side {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 20px 16px;
+      cursor: pointer;
+      transition: background .15s;
+      text-decoration: none;
+      color: inherit;
+    }
+    .match-side:hover { background: rgba(255,255,255,.03); }
+    .match-side.winner-side { background: rgba(34,197,94,.04); }
+    .match-side.loser-side  { background: rgba(239,68,68,.04); }
+
+    .match-avatar {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid transparent;
+    }
+    .winner-side .match-avatar { border-color: rgba(34,197,94,.5); }
+    .loser-side  .match-avatar { border-color: rgba(239,68,68,.3); filter: grayscale(40%); }
+
+    .match-username { font-size: 14px; font-weight: 600; text-align: center; }
+    .match-elo-delta {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 2px 10px;
+      border-radius: 999px;
+    }
+    .delta-gain { background: rgba(34,197,94,.15); color: #86efac; }
+    .delta-loss { background: rgba(239,68,68,.12); color: #fca5a5; }
+    .delta-none { background: rgba(255,255,255,.06); color: var(--muted); }
+
+    .match-vs {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 16px 8px;
+    }
+    .vs-badge {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      color: var(--muted);
+    }
+    .outcome-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 999px;
+      letter-spacing: .04em;
+    }
+    .outcome-win  { background: rgba(34,197,94,.15);  color: #86efac; }
+    .outcome-loss { background: rgba(239,68,68,.12); color: #fca5a5; }
+    .outcome-cast { background: rgba(99,102,241,.15); color: #a5b4fc; }
+
+    .match-time { font-size: 11px; color: var(--muted); padding: 0 16px 12px; text-align: center; }
+
+    /* ── Pagination ──────────────────────────────────────────────────────── */
+    .page-btn {
+      padding: 8px 18px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .page-btn:disabled { opacity: .35; cursor: default; }
+    .page-btn:hover:not(:disabled) { border-color: rgba(124,58,237,.4); background: rgba(124,58,237,.08); }
+
+    /* ── Stats strip ────────────────────────────────────────────────────── */
+    .stats-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .stat-pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      text-align: center;
+    }
+    .stat-pill-num  { font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+    .stat-pill-lbl  { font-size: 11px; color: var(--muted); margin-top: 2px; font-weight: 500; }
+
+    /* ── Empty ───────────────────────────────────────────────────────────── */
+    .empty-box {
+      text-align: center;
+      padding: 64px 24px;
+      color: var(--muted);
+    }
+    .empty-box .icon { font-size: 48px; margin-bottom: 16px; }
+    .empty-box h3 { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+
+    /* ── Skeleton ────────────────────────────────────────────────────────── */
+    .skel-match {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      height: 120px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav class="glass-nav">
+    <div style="max-width:1200px;margin:0 auto;padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;">
+      <a href="index.html" style="font-size:18px;font-weight:800;letter-spacing:-.02em;text-decoration:none;color:inherit;">
+        Photo<span class="grad-text">Rank</span>
+      </a>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <div id="nav-actions" style="display:flex;gap:8px;align-items:center;"></div>
+      </div>
+    </div>
+  </nav>
+
+  <div style="max-width:760px;margin:0 auto;padding:32px 24px 100px;">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:28px;flex-wrap:wrap;">
+      <div>
+        <h1 style="font-size:26px;font-weight:900;letter-spacing:-.02em;">Match History</h1>
+        <p id="viewing-label" style="font-size:14px;color:var(--muted);margin-top:2px;"></p>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px;">
+        <a id="back-btn" href="profile.html" class="btn-ghost" style="font-size:13px;padding:8px 16px;text-decoration:none;">
+          ← Profile
+        </a>
+      </div>
+    </div>
+
+    <!-- Stats strip -->
+    <div class="stats-strip" id="stats-strip">
+      <div class="stat-pill"><div class="skeleton" style="height:22px;width:40px;margin:0 auto 4px;border-radius:6px;"></div><div class="skeleton" style="height:10px;width:50px;margin:0 auto;border-radius:4px;"></div></div>
+      <div class="stat-pill"><div class="skeleton" style="height:22px;width:40px;margin:0 auto 4px;border-radius:6px;"></div><div class="skeleton" style="height:10px;width:50px;margin:0 auto;border-radius:4px;"></div></div>
+      <div class="stat-pill"><div class="skeleton" style="height:22px;width:40px;margin:0 auto 4px;border-radius:6px;"></div><div class="skeleton" style="height:10px;width:50px;margin:0 auto;border-radius:4px;"></div></div>
+      <div class="stat-pill"><div class="skeleton" style="height:22px;width:40px;margin:0 auto 4px;border-radius:6px;"></div><div class="skeleton" style="height:10px;width:50px;margin:0 auto;border-radius:4px;"></div></div>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filter-bar">
+      <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+      <button class="filter-btn" data-filter="wins" onclick="setFilter('wins')">Wins</button>
+      <button class="filter-btn" data-filter="losses" onclick="setFilter('losses')">Losses</button>
+      <button class="filter-btn" data-filter="cast" onclick="setFilter('cast')">Votes Cast</button>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+        <label style="font-size:12px;color:var(--muted);">Sort:</label>
+        <select id="sort-select" onchange="setSort(this.value)"
+          style="background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:5px 10px;cursor:pointer;">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Match list -->
+    <div id="match-list" style="display:flex;flex-direction:column;gap:10px;">
+      <!-- Skeletons -->
+      <div class="skel-match skeleton"></div>
+      <div class="skel-match skeleton"></div>
+      <div class="skel-match skeleton"></div>
+      <div class="skel-match skeleton"></div>
+      <div class="skel-match skeleton"></div>
+    </div>
+
+    <!-- Pagination -->
+    <div id="pagination" style="display:none;justify-content:space-between;align-items:center;margin-top:24px;">
+      <button class="page-btn" id="prev-btn" onclick="changePage(-1)">← Previous</button>
+      <span id="page-info" style="font-size:13px;color:var(--muted);"></span>
+      <button class="page-btn" id="next-btn" onclick="changePage(1)">Next →</button>
+    </div>
+
+  </div>
+
+  <!-- Mobile nav -->
+  <nav class="mobile-nav">
+    <a href="vote.html" class="mobile-nav-item">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Vote
+    </a>
+    <a href="leaderboard.html" class="mobile-nav-item">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      Ranks
+    </a>
+    <a href="profile.html" class="mobile-nav-item">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+      Profile
+    </a>
+  </nav>
+
+  <script>
+    const PAGE_SIZE = 10
+    let allMatches = []    // raw fetched rows (both received + cast)
+    let filtered   = []    // after filter
+    let currentFilter = 'all'
+    let currentSort   = 'newest'
+    let currentPage   = 1
+    let viewUserId    = null
+    let currentUserId = null
+
+    // ── Init ────────────────────────────────────────────────────────────────
+    async function init() {
+      initNav()
+      const { data: { user } } = await getSupabase().auth.getUser()
+      if (!user) { window.location.href = 'index.html'; return }
+      currentUserId = user.id
+
+      // Support ?id=uuid to view another user's history
+      const params = new URLSearchParams(location.search)
+      viewUserId = params.get('id') || user.id
+
+      const isOwnProfile = viewUserId === user.id
+
+      // Update back button
+      if (!isOwnProfile) {
+        document.getElementById('back-btn').href = `profile.html?id=${viewUserId}`
+      }
+
+      // Fetch profile name for label
+      const { data: prof } = await getSupabase()
+        .from('profiles').select('username').eq('id', viewUserId).single()
+      document.getElementById('viewing-label').textContent =
+        isOwnProfile ? 'Your complete match record' : `Match record for ${escapeHtml(prof?.username || 'this user')}`
+
+      await loadMatches()
+    }
+
+    // ── Load all matches ─────────────────────────────────────────────────────
+    async function loadMatches() {
+      const sb = getSupabase()
+
+      // Votes where the viewed user was judged (won or lost)
+      const { data: judged } = await sb
+        .from('votes')
+        .select(`
+          id, created_at,
+          voter:voter_id ( id, username, photo_url, elo_score ),
+          winner:winner_id ( id, username, photo_url, elo_score ),
+          loser:loser_id  ( id, username, photo_url, elo_score )
+        `)
+        .or(`winner_id.eq.${viewUserId},loser_id.eq.${viewUserId}`)
+        .order('created_at', { ascending: false })
+        .limit(500)
+
+      // Votes the viewed user cast (only shown for own profile for privacy)
+      let cast = []
+      if (viewUserId === currentUserId) {
+        const { data } = await sb
+          .from('votes')
+          .select(`
+            id, created_at,
+            winner:winner_id ( id, username, photo_url, elo_score ),
+            loser:loser_id  ( id, username, photo_url, elo_score )
+          `)
+          .eq('voter_id', viewUserId)
+          .order('created_at', { ascending: false })
+          .limit(500)
+        cast = (data || []).map(r => ({ ...r, type: 'cast' }))
+      }
+
+      const received = (judged || []).map(r => ({
+        ...r,
+        type: r.winner?.id === viewUserId ? 'win' : 'loss'
+      }))
+
+      allMatches = [...received, ...cast]
+
+      buildStats(received, cast)
+      applyFilterAndSort()
+    }
+
+    // ── Stats ────────────────────────────────────────────────────────────────
+    function buildStats(received, cast) {
+      const wins   = received.filter(r => r.type === 'win').length
+      const losses = received.filter(r => r.type === 'loss').length
+      const total  = received.length
+      const winRate = total ? Math.round(wins / total * 100) : 0
+
+      document.getElementById('stats-strip').innerHTML = `
+        <div class="stat-pill">
+          <div class="stat-pill-num" style="color:#86efac;">${wins}</div>
+          <div class="stat-pill-lbl">Wins</div>
+        </div>
+        <div class="stat-pill">
+          <div class="stat-pill-num" style="color:#fca5a5;">${losses}</div>
+          <div class="stat-pill-lbl">Losses</div>
+        </div>
+        <div class="stat-pill">
+          <div class="stat-pill-num grad-text">${winRate}%</div>
+          <div class="stat-pill-lbl">Win Rate</div>
+        </div>
+        <div class="stat-pill">
+          <div class="stat-pill-num" style="color:#a5b4fc;">${cast.length}</div>
+          <div class="stat-pill-lbl">Votes Cast</div>
+        </div>
+      `
+    }
+
+    // ── Filter / sort ────────────────────────────────────────────────────────
+    function setFilter(f) {
+      currentFilter = f
+      currentPage = 1
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === f))
+      applyFilterAndSort()
+    }
+
+    function setSort(s) {
+      currentSort = s
+      currentPage = 1
+      applyFilterAndSort()
+    }
+
+    function applyFilterAndSort() {
+      let rows = allMatches
+      if (currentFilter === 'wins')   rows = rows.filter(r => r.type === 'win')
+      if (currentFilter === 'losses') rows = rows.filter(r => r.type === 'loss')
+      if (currentFilter === 'cast')   rows = rows.filter(r => r.type === 'cast')
+
+      filtered = rows.sort((a, b) => {
+        const diff = new Date(b.created_at) - new Date(a.created_at)
+        return currentSort === 'newest' ? diff : -diff
+      })
+
+      renderPage()
+    }
+
+    // ── Render ───────────────────────────────────────────────────────────────
+    function renderPage() {
+      const list = document.getElementById('match-list')
+      const total = filtered.length
+      const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+      currentPage = Math.min(currentPage, pages)
+
+      const start = (currentPage - 1) * PAGE_SIZE
+      const slice = filtered.slice(start, start + PAGE_SIZE)
+
+      if (total === 0) {
+        list.innerHTML = `
+          <div class="empty-box">
+            <div class="icon">🎯</div>
+            <h3>No matches yet</h3>
+            <p>Play some rounds to build your record.</p>
+          </div>`
+        document.getElementById('pagination').style.display = 'none'
+        return
+      }
+
+      list.innerHTML = slice.map(row => renderMatchCard(row)).join('')
+
+      // Pagination
+      const pgEl = document.getElementById('pagination')
+      pgEl.style.display = 'flex'
+      document.getElementById('page-info').textContent = `Page ${currentPage} of ${pages}`
+      document.getElementById('prev-btn').disabled = currentPage <= 1
+      document.getElementById('next-btn').disabled = currentPage >= pages
+    }
+
+    function renderMatchCard(row) {
+      const time = timeAgo(row.created_at)
+
+      if (row.type === 'cast') {
+        // Votes the user cast — show both candidates
+        const w = row.winner || {}
+        const l = row.loser  || {}
+        return `
+          <div class="match-card">
+            <div class="match-card-inner">
+              <a href="profile.html?id=${w.id || ''}" class="match-side winner-side">
+                <img class="match-avatar" src="${escapeHtml(w.photo_url || '')}" onerror="this.src=''" alt="${escapeHtml(w.username || '')}" />
+                <div class="match-username">${escapeHtml(w.username || 'Unknown')}</div>
+                <div class="match-elo-delta delta-none">${fmtElo(w.elo_score)}</div>
+              </a>
+              <div class="match-vs">
+                <div class="vs-badge">VS</div>
+                <div class="outcome-badge outcome-cast">Voted</div>
+              </div>
+              <a href="profile.html?id=${l.id || ''}" class="match-side loser-side">
+                <img class="match-avatar" src="${escapeHtml(l.photo_url || '')}" onerror="this.src=''" alt="${escapeHtml(l.username || '')}" />
+                <div class="match-username">${escapeHtml(l.username || 'Unknown')}</div>
+                <div class="match-elo-delta delta-none">${fmtElo(l.elo_score)}</div>
+              </a>
+            </div>
+            <div class="match-time">${time}</div>
+          </div>`
+      }
+
+      // Win / Loss — viewUserId was in the matchup
+      const isWin = row.type === 'win'
+      const me = isWin ? (row.winner || {}) : (row.loser || {})
+      const opponent = isWin ? (row.loser || {}) : (row.winner || {})
+
+      // Me side
+      const mySide = `
+        <div class="match-side ${isWin ? 'winner-side' : 'loser-side'}">
+          <img class="match-avatar" src="${escapeHtml(me.photo_url || '')}" onerror="this.src=''" alt="" />
+          <div class="match-username">You</div>
+          <div class="match-elo-delta ${isWin ? 'delta-gain' : 'delta-loss'}">${isWin ? '+' : '-'}…</div>
+        </div>`
+
+      const oppLink = `profile.html?id=${opponent.id || ''}`
+      const oppSide = `
+        <a href="${oppLink}" class="match-side ${isWin ? 'loser-side' : 'winner-side'}" style="text-decoration:none;color:inherit;">
+          <img class="match-avatar" src="${escapeHtml(opponent.photo_url || '')}" onerror="this.src=''" alt="${escapeHtml(opponent.username || '')}" />
+          <div class="match-username">${escapeHtml(opponent.username || 'Unknown')}</div>
+          <div class="match-elo-delta delta-none">${fmtElo(opponent.elo_score)}</div>
+        </a>`
+
+      return `
+        <div class="match-card">
+          <div class="match-card-inner">
+            ${mySide}
+            <div class="match-vs">
+              <div class="vs-badge">VS</div>
+              <div class="outcome-badge ${isWin ? 'outcome-win' : 'outcome-loss'}">${isWin ? 'Win' : 'Loss'}</div>
+            </div>
+            ${oppSide}
+          </div>
+          <div class="match-time">${time}</div>
+        </div>`
+    }
+
+    function changePage(delta) {
+      currentPage += delta
+      renderPage()
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function fmtElo(v) { return v ? v.toLocaleString() : '–' }
+
+    function timeAgo(ts) {
+      const s = Math.floor((Date.now() - new Date(ts)) / 1000)
+      if (s < 60) return 'just now'
+      if (s < 3600)  return Math.floor(s/60)  + 'm ago'
+      if (s < 86400) return Math.floor(s/3600) + 'h ago'
+      return Math.floor(s/86400) + 'd ago'
+    }
+
+    init()
+  </script>
+</body>
+</html>

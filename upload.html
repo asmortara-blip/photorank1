@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#7c3aed" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PhotoRank – Upload Photo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script src="common.js"></script>
+  <style>
+    .upload-card { width:100%;max-width:480px;padding:40px; }
+    .form-label  { display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:500; }
+
+    /* Drop zone states */
+    #drop-zone { transition:border-color .2s,background .2s; }
+    #drop-zone.has-preview { border-color:rgba(124,58,237,0.5);background:rgba(124,58,237,0.06); }
+
+    /* Upload progress bar */
+    @keyframes progressPulse { 0%,100%{opacity:1}50%{opacity:.6} }
+    .uploading .progress-bar-fill { animation:progressPulse 1.2s ease infinite; }
+
+    /* Steps indicator */
+    .step { display:flex;align-items:center;gap:10px;font-size:13px; }
+    .step-dot { width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0; }
+    .step-done .step-dot  { background:rgba(34,197,94,0.2);border:1px solid rgba(34,197,94,0.4);color:#86efac; }
+    .step-active .step-dot { background:linear-gradient(135deg,#7c3aed,#4f46e5);color:white; }
+    .step-pending .step-dot { background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--muted); }
+    .step-done p, .step-active p { color:var(--text); }
+    .step-pending p { color:var(--muted); }
+  </style>
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav class="glass-nav">
+    <div style="max-width:1200px;margin:0 auto;padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;">
+      <a href="index.html" style="font-size:18px;font-weight:800;letter-spacing:-.02em;text-decoration:none;color:inherit;">
+        Photo<span class="grad-text">Rank</span>
+      </a>
+      <div class="desktop-links" style="display:flex;gap:8px;align-items:center;">
+        <div id="nav-actions" style="display:flex;gap:8px;align-items:center;"></div>
+      </div>
+    </div>
+  </nav>
+
+  <div style="min-height:calc(100vh - 60px);display:flex;align-items:center;justify-content:center;padding:40px 24px;position:relative;overflow:hidden;">
+    <!-- Orbs -->
+    <div class="orb orb-purple orb-a" style="width:500px;height:500px;top:-150px;left:-120px;opacity:.3;"></div>
+    <div class="orb orb-blue orb-b" style="width:400px;height:400px;bottom:-80px;right:-80px;opacity:.25;"></div>
+
+    <div style="display:flex;gap:48px;align-items:center;flex-wrap:wrap;justify-content:center;position:relative;z-index:1;width:100%;max-width:900px;">
+
+      <!-- Left: steps -->
+      <div style="flex:1;min-width:200px;max-width:260px;display:flex;flex-direction:column;gap:20px;">
+        <h2 style="font-size:22px;font-weight:800;letter-spacing:-.02em;margin-bottom:4px;">Set up your profile</h2>
+        <p style="color:var(--muted);font-size:14px;line-height:1.6;margin-bottom:12px;">Join the competition in three easy steps.</p>
+        <div id="step-1" class="step step-done">
+          <div class="step-dot">✓</div>
+          <p style="font-size:14px;">Create account</p>
+        </div>
+        <div style="width:2px;height:20px;background:rgba(255,255,255,0.06);margin-left:10px;"></div>
+        <div id="step-2" class="step step-active">
+          <div class="step-dot">2</div>
+          <p style="font-size:14px;">Upload your photo</p>
+        </div>
+        <div style="width:2px;height:20px;background:rgba(255,255,255,0.06);margin-left:10px;"></div>
+        <div id="step-3" class="step step-pending">
+          <div class="step-dot">3</div>
+          <p style="font-size:14px;">Start voting &amp; climbing</p>
+        </div>
+      </div>
+
+      <!-- Right: form -->
+      <div class="glass-card upload-card">
+        <h3 style="font-size:20px;font-weight:800;margin-bottom:24px;">Your profile</h3>
+
+        <!-- Display name -->
+        <div style="margin-bottom:20px;">
+          <label class="form-label">Display name</label>
+          <input id="username" type="text" maxlength="30" placeholder="e.g. Alex" class="input" />
+        </div>
+
+        <!-- Bio -->
+        <div style="margin-bottom:20px;">
+          <label class="form-label">Bio <span style="color:var(--muted);font-weight:400;">· optional</span></label>
+          <textarea id="bio" maxlength="160" placeholder="A short line about you…" class="input" style="height:72px;resize:none;line-height:1.5;"></textarea>
+        </div>
+
+        <!-- Categories -->
+        <div style="margin-bottom:20px;">
+          <label class="form-label">Categories <span style="color:var(--muted);font-weight:400;">· pick up to 3</span></label>
+          <div id="cat-grid" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:2px;">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Drop zone -->
+        <div style="margin-bottom:20px;">
+          <label class="form-label">Photo <span style="color:var(--muted);font-weight:400;">· auto-resized to 800×800</span></label>
+          <div id="drop-zone" class="drop-zone"
+            style="padding:0;text-align:center;cursor:pointer;position:relative;border-radius:20px;overflow:hidden;"
+            onclick="document.getElementById('file-input').click()"
+            ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+
+            <!-- Empty state -->
+            <div id="drop-empty" style="padding:40px 20px;">
+              <div style="font-size:36px;margin-bottom:10px;">📷</div>
+              <p style="font-weight:600;font-size:15px;margin-bottom:4px;">Drop your photo here</p>
+              <p style="color:var(--muted);font-size:13px;">or click to browse · JPG, PNG, WEBP</p>
+            </div>
+
+            <!-- Preview state -->
+            <div id="drop-preview" style="display:none;position:relative;">
+              <img id="preview-img" style="width:100%;aspect-ratio:1;object-fit:cover;display:block;" src="" alt="" />
+              <div style="position:absolute;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;" id="preview-overlay"
+                onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0'">
+                <span style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:999px;padding:10px 20px;font-size:14px;font-weight:600;backdrop-filter:blur(8px);">Change photo</span>
+              </div>
+              <div id="resize-tag" style="display:none;position:absolute;top:10px;right:10px;background:rgba(34,197,94,0.9);color:white;font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;">Resized ✓</div>
+            </div>
+
+            <input id="file-input" type="file" accept="image/*" style="display:none;" onchange="onFileSelect(event)" />
+          </div>
+        </div>
+
+        <!-- Upload progress -->
+        <div id="progress-wrap" style="display:none;margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+            <p id="progress-label" style="font-size:13px;color:var(--muted);">Uploading…</p>
+            <p id="progress-pct" style="font-size:13px;color:var(--muted);"></p>
+          </div>
+          <div class="progress-bar-track uploading" style="height:6px;">
+            <div class="progress-bar-fill" id="progress-bar" style="width:0%;height:100%;"></div>
+          </div>
+        </div>
+
+        <p id="err" style="display:none;color:#f87171;font-size:13px;margin-bottom:12px;"></p>
+
+        <button id="submit-btn" onclick="handleUpload()" class="btn-accent" style="width:100%;font-size:15px;">
+          Save &amp; Start Voting →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile nav -->
+  <nav class="mobile-nav">
+    <a href="vote.html" class="mobile-nav-item">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Vote
+    </a>
+    <a href="leaderboard.html" class="mobile-nav-item">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      Ranks
+    </a>
+    <a href="profile.html" class="mobile-nav-item">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+      Profile
+    </a>
+  </nav>
+
+  <style>
+    .cat-chip-pick {
+      padding: 5px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all .15s;
+      user-select: none;
+    }
+    .cat-chip-pick.selected {
+      background: linear-gradient(135deg,#7c3aed,#4f46e5);
+      border-color: transparent;
+      color: white;
+    }
+    .cat-chip-pick:hover:not(.selected) {
+      border-color: rgba(124,58,237,.4);
+      color: var(--text);
+    }
+    .cat-chip-pick.disabled:not(.selected) {
+      opacity: .4;
+      cursor: default;
+    }
+  </style>
+
+  <script>
+    const ALL_CATEGORIES = [
+      'Student','Athlete','Artist','Gamer','Musician',
+      'Traveler','Foodie','Fitness','Tech','Fashion'
+    ]
+    let selectedCats = new Set()
+    let resizedFile = null
+    initNav()
+
+    // Render category chips
+    ;(function buildCatGrid() {
+      const grid = document.getElementById('cat-grid')
+      ALL_CATEGORIES.forEach(name => {
+        const btn = document.createElement('button')
+        btn.type = 'button'
+        btn.className = 'cat-chip-pick'
+        btn.textContent = name
+        btn.dataset.name = name
+        btn.onclick = () => toggleCat(name, btn)
+        grid.appendChild(btn)
+      })
+    })()
+
+    getSupabase().auth.getUser().then(({ data: { user } }) => {
+      if (!user) window.location.href = 'index.html'
+    })
+
+    // ── Drag & drop ────────────────────────────────────────────────────────
+    function onDragOver(e) {
+      e.preventDefault()
+      document.getElementById('drop-zone').classList.add('drag-over')
+    }
+    function onDragLeave(e) {
+      document.getElementById('drop-zone').classList.remove('drag-over')
+    }
+    function onDrop(e) {
+      e.preventDefault()
+      document.getElementById('drop-zone').classList.remove('drag-over')
+      const file = e.dataTransfer.files[0]
+      if (file && file.type.startsWith('image/')) processFile(file)
+    }
+    function onFileSelect(e) {
+      const file = e.target.files[0]
+      if (file) processFile(file)
+    }
+
+    async function processFile(file) {
+      // Show a quick preview immediately
+      const tmpUrl = URL.createObjectURL(file)
+      showPreview(tmpUrl)
+
+      // Resize in background
+      const originalSize = file.size
+      resizedFile = await resizeImage(file)
+      const newUrl = URL.createObjectURL(resizedFile)
+      showPreview(newUrl)
+
+      if (resizedFile.size < originalSize) {
+        document.getElementById('resize-tag').style.display = 'block'
+      }
+    }
+
+    function showPreview(url) {
+      document.getElementById('drop-empty').style.display = 'none'
+      document.getElementById('drop-preview').style.display = 'block'
+      document.getElementById('preview-img').src = url
+      document.getElementById('drop-zone').classList.add('has-preview')
+    }
+
+    function toggleCat(name, btn) {
+      if (selectedCats.has(name)) {
+        selectedCats.delete(name)
+        btn.classList.remove('selected')
+      } else {
+        if (selectedCats.size >= 3) {
+          showToast('Pick up to 3 categories', 'info')
+          return
+        }
+        selectedCats.add(name)
+        btn.classList.add('selected')
+      }
+      // Dim unselected when at max
+      document.querySelectorAll('.cat-chip-pick').forEach(b => {
+        if (!b.classList.contains('selected')) {
+          b.classList.toggle('disabled', selectedCats.size >= 3)
+        }
+      })
+    }
+
+    // ── Upload ─────────────────────────────────────────────────────────────
+    async function handleUpload() {
+      const username = document.getElementById('username').value.trim()
+      const bio = document.getElementById('bio').value.trim()
+      const file = resizedFile || document.getElementById('file-input').files[0]
+      const errEl = document.getElementById('err')
+      errEl.style.display = 'none'
+
+      if (!username) { showErr('Please enter a display name.'); return }
+      if (!file)     { showErr('Please select a photo.'); return }
+
+      const btn = document.getElementById('submit-btn')
+      btn.textContent = 'Uploading…'; btn.disabled = true
+
+      setProgress('Uploading photo…', 25)
+
+      const { data: { user } } = await getSupabase().auth.getUser()
+      if (!user) { window.location.href = 'index.html'; return }
+
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+      const filePath = `${user.id}.${ext}`
+
+      const { error: uploadError } = await getSupabase().storage
+        .from('photos').upload(filePath, file, { upsert: true })
+
+      if (uploadError) { showErr('Upload failed: ' + uploadError.message); resetBtn(btn); return }
+
+      setProgress('Saving profile…', 55)
+
+      const { data: { publicUrl } } = getSupabase().storage.from('photos').getPublicUrl(filePath)
+
+      const profilePayload = {
+        id: user.id, username, photo_url: publicUrl, elo_score: 1000, vote_count: 0,
+      }
+      if (bio) profilePayload.bio = bio
+
+      // Apply pending invite credit (set by index.html on signup)
+      const pendingInviter = sessionStorage.getItem('pendingInviter')
+      if (pendingInviter) profilePayload.invited_by = pendingInviter
+
+      const { error: profileError } = await getSupabase().from('profiles').upsert(profilePayload)
+
+      if (profileError) { showErr('Profile save failed: ' + profileError.message); resetBtn(btn); return }
+
+      setProgress('Saving categories…', 75)
+
+      // Save categories
+      if (selectedCats.size > 0) {
+        // Look up category IDs
+        const { data: catRows } = await getSupabase()
+          .from('categories').select('id,name').in('name', [...selectedCats])
+
+        if (catRows && catRows.length) {
+          const inserts = catRows.map(c => ({ profile_id: user.id, category_id: c.id }))
+          await getSupabase().from('profile_categories').upsert(inserts, { onConflict: 'profile_id,category_id' })
+        }
+      }
+
+      // Credit inviter
+      if (pendingInviter) {
+        sessionStorage.removeItem('pendingInviter')
+        await getSupabase().rpc('increment_invite_count', { uid: pendingInviter })
+          .catch(() => {
+            // fallback: manual increment
+            getSupabase().from('profiles')
+              .select('invite_count').eq('id', pendingInviter).single()
+              .then(({ data }) => {
+                if (data) {
+                  getSupabase().from('profiles')
+                    .update({ invite_count: (data.invite_count || 0) + 1 })
+                    .eq('id', pendingInviter)
+                }
+              })
+          })
+      }
+
+      setProgress('Done!', 100)
+      setTimeout(() => { window.location.href = 'vote.html' }, 500)
+    }
+
+    function setProgress(label, pct) {
+      const wrap = document.getElementById('progress-wrap')
+      wrap.style.display = 'block'
+      document.getElementById('progress-label').textContent = label
+      document.getElementById('progress-pct').textContent = pct + '%'
+      document.getElementById('progress-bar').style.width = pct + '%'
+    }
+
+    function showErr(msg) {
+      const el = document.getElementById('err')
+      el.textContent = msg; el.style.display = 'block'
+      resetBtn(document.getElementById('submit-btn'))
+    }
+
+    function resetBtn(btn) {
+      btn.textContent = 'Save & Start Voting →'; btn.disabled = false
+      document.getElementById('progress-wrap').style.display = 'none'
+    }
+  </script>
+</body>
+</html>

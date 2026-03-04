@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#7c3aed" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PhotoRank – Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script src="common.js"></script>
+</head>
+<body class="bg-gray-950 text-white min-h-screen">
+
+  <nav class="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+    <a href="index.html" class="text-xl font-bold tracking-tight">PhotoRank</a>
+    <div class="flex gap-4 text-sm items-center">
+      <a href="vote.html" class="text-gray-300 hover:text-white">Vote</a>
+      <a href="leaderboard.html" class="text-gray-300 hover:text-white">Leaderboard</a>
+      <div id="nav-actions" class="flex gap-4 items-center"></div>
+    </div>
+  </nav>
+
+  <!-- Access denied -->
+  <div id="denied" class="hidden flex flex-col items-center justify-center min-h-[80vh] gap-3 text-center px-6">
+    <div class="text-5xl mb-2">🚫</div>
+    <h2 class="text-xl font-bold">Access Denied</h2>
+    <p class="text-gray-400">You don't have admin access.</p>
+    <a href="index.html" class="mt-4 px-5 py-2 border border-gray-600 rounded-lg text-sm hover:border-gray-400">Go Home</a>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading" class="flex items-center justify-center min-h-[80vh]">
+    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+  </div>
+
+  <!-- Admin content -->
+  <div id="admin-content" class="hidden max-w-5xl mx-auto px-6 py-10">
+    <h1 class="text-3xl font-bold mb-1">Admin Panel</h1>
+    <p class="text-gray-500 text-sm mb-10">Manage users and reports</p>
+
+    <!-- Stats row -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
+      <div class="bg-gray-900 rounded-xl px-5 py-4">
+        <p id="stat-users" class="text-2xl font-bold">—</p>
+        <p class="text-gray-500 text-xs mt-1">Total Users</p>
+      </div>
+      <div class="bg-gray-900 rounded-xl px-5 py-4">
+        <p id="stat-votes" class="text-2xl font-bold">—</p>
+        <p class="text-gray-500 text-xs mt-1">Total Votes</p>
+      </div>
+      <div class="bg-gray-900 rounded-xl px-5 py-4">
+        <p id="stat-reports" class="text-2xl font-bold text-yellow-400">—</p>
+        <p class="text-gray-500 text-xs mt-1">Open Reports</p>
+      </div>
+      <div class="bg-gray-900 rounded-xl px-5 py-4">
+        <p id="stat-resolved" class="text-2xl font-bold text-green-400">—</p>
+        <p class="text-gray-500 text-xs mt-1">Resolved Reports</p>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex gap-1 mb-6 bg-gray-900 p-1 rounded-xl w-fit">
+      <button onclick="switchTab('reports')" id="tab-reports"
+        class="px-5 py-2 rounded-lg text-sm font-medium transition-colors bg-white text-gray-950">
+        Reports
+      </button>
+      <button onclick="switchTab('users')" id="tab-users"
+        class="px-5 py-2 rounded-lg text-sm font-medium transition-colors text-gray-400 hover:text-white">
+        All Users
+      </button>
+    </div>
+
+    <!-- Reports tab -->
+    <div id="tab-content-reports">
+      <div id="reports-list"></div>
+    </div>
+
+    <!-- Users tab -->
+    <div id="tab-content-users" class="hidden">
+      <div class="mb-4">
+        <input id="user-search" oninput="filterUsers()" type="text" placeholder="Search by username…"
+          class="w-full max-w-sm px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-gray-500 text-white" />
+      </div>
+      <div id="users-list"></div>
+    </div>
+  </div>
+
+  <!-- Confirm Delete Modal -->
+  <div id="delete-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-6">
+    <div class="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-sm text-center">
+      <h3 class="text-lg font-bold mb-2">Delete user?</h3>
+      <p class="text-gray-400 text-sm mb-1">This will permanently remove:</p>
+      <p id="delete-name" class="font-semibold mb-5"></p>
+      <p class="text-xs text-gray-600 mb-5">Their photo, profile, and all associated votes will be deleted.</p>
+      <div class="flex gap-3">
+        <button onclick="confirmDelete()"
+          class="flex-1 py-2 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-lg text-sm transition-colors">
+          Delete
+        </button>
+        <button onclick="closeDeleteModal()"
+          class="px-4 py-2 border border-gray-700 rounded-lg text-sm hover:border-gray-500 transition-colors">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allUsers = []
+    let deleteTarget = null
+
+    initNav()
+
+    async function init() {
+      const sb = getSupabase()
+      const { data: { user } } = await sb.auth.getUser()
+
+      if (!user) {
+        document.getElementById('loading').classList.add('hidden')
+        document.getElementById('denied').classList.remove('hidden')
+        return
+      }
+
+      // Check admin status
+      const { data: adminRow } = await sb.from('admins').select('id').eq('id', user.id).single()
+
+      if (!adminRow) {
+        document.getElementById('loading').classList.add('hidden')
+        document.getElementById('denied').classList.remove('hidden')
+        return
+      }
+
+      await Promise.all([loadStats(), loadReports(), loadUsers()])
+
+      document.getElementById('loading').classList.add('hidden')
+      document.getElementById('admin-content').classList.remove('hidden')
+    }
+
+    async function loadStats() {
+      const sb = getSupabase()
+      const [
+        { count: users },
+        { count: votes },
+        { count: openReports },
+        { count: resolvedReports },
+      ] = await Promise.all([
+        sb.from('profiles').select('*', { count: 'exact', head: true }),
+        sb.from('votes').select('*', { count: 'exact', head: true }),
+        sb.from('reports').select('*', { count: 'exact', head: true }).eq('resolved', false),
+        sb.from('reports').select('*', { count: 'exact', head: true }).eq('resolved', true),
+      ])
+      document.getElementById('stat-users').textContent = users ?? 0
+      document.getElementById('stat-votes').textContent = votes ?? 0
+      document.getElementById('stat-reports').textContent = openReports ?? 0
+      document.getElementById('stat-resolved').textContent = resolvedReports ?? 0
+    }
+
+    async function loadReports() {
+      const { data: reports } = await getSupabase()
+        .from('reports')
+        .select('id, reason, resolved, created_at, reported_user_id, reporter_id')
+        .order('created_at', { ascending: false })
+        .limit(100)
+
+      if (!reports || reports.length === 0) {
+        document.getElementById('reports-list').innerHTML =
+          '<p class="text-gray-600 text-sm">No reports yet.</p>'
+        return
+      }
+
+      // Fetch names
+      const ids = [...new Set(reports.flatMap(r => [r.reported_user_id, r.reporter_id]))]
+      const { data: profiles } = await getSupabase().from('profiles').select('id, username, photo_url').in('id', ids)
+      const byId = Object.fromEntries((profiles ?? []).map(p => [p.id, p]))
+
+      const reasonLabels = {
+        inappropriate: 'Inappropriate content',
+        not_a_person: 'Not a real person',
+        spam: 'Spam / fake profile',
+        other: 'Other',
+      }
+
+      document.getElementById('reports-list').innerHTML = reports.map(r => {
+        const reported = byId[r.reported_user_id]
+        const reporter = byId[r.reporter_id]
+        return `
+          <div class="flex items-start gap-4 px-4 py-4 bg-gray-900 rounded-xl mb-2 ${r.resolved ? 'opacity-50' : ''}">
+            <img src="${escapeHtml(reported?.photo_url ?? '')}" class="w-11 h-11 rounded-full object-cover flex-shrink-0 ring-2 ring-red-800" />
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold">${escapeHtml(reported?.username ?? '?')}</p>
+              <p class="text-xs text-gray-400 mt-0.5">${reasonLabels[r.reason] ?? r.reason}</p>
+              <p class="text-xs text-gray-600 mt-0.5">Reported by ${escapeHtml(reporter?.username ?? '?')} · ${new Date(r.created_at).toLocaleDateString()}</p>
+            </div>
+            <div class="flex gap-2 flex-shrink-0">
+              ${!r.resolved ? `
+                <button onclick="resolveReport('${r.id}')"
+                  class="px-3 py-1 text-xs border border-gray-600 rounded-lg hover:border-green-500 hover:text-green-400 transition-colors">
+                  Resolve
+                </button>
+                <button onclick="promptDelete('${reported?.id}', '${escapeHtml(reported?.username ?? '?')}')"
+                  class="px-3 py-1 text-xs border border-red-800 rounded-lg hover:bg-red-900 text-red-400 transition-colors">
+                  Delete User
+                </button>
+              ` : '<span class="text-xs text-green-700 pt-1">Resolved</span>'}
+            </div>
+          </div>
+        `
+      }).join('')
+    }
+
+    async function loadUsers() {
+      const { data: users } = await getSupabase()
+        .from('profiles')
+        .select('id, username, photo_url, elo_score, vote_count, created_at')
+        .order('created_at', { ascending: false })
+
+      allUsers = users ?? []
+      renderUsers(allUsers)
+    }
+
+    function renderUsers(users) {
+      document.getElementById('users-list').innerHTML = users.map(u => `
+        <div class="flex items-center gap-4 px-4 py-3 bg-gray-900 rounded-xl mb-2">
+          <img src="${escapeHtml(u.photo_url)}" class="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold truncate">${escapeHtml(u.username)}</p>
+            <p class="text-xs text-gray-500">ELO ${u.elo_score} · ${u.vote_count} votes · joined ${new Date(u.created_at).toLocaleDateString()}</p>
+          </div>
+          <button onclick="promptDelete('${u.id}', '${escapeHtml(u.username)}')"
+            class="px-3 py-1 text-xs border border-red-900 rounded-lg hover:bg-red-900 text-red-400 transition-colors flex-shrink-0">
+            Delete
+          </button>
+        </div>
+      `).join('')
+    }
+
+    function filterUsers() {
+      const q = document.getElementById('user-search').value.toLowerCase()
+      renderUsers(allUsers.filter(u => u.username.toLowerCase().includes(q)))
+    }
+
+    async function resolveReport(reportId) {
+      await getSupabase().from('reports').update({ resolved: true }).eq('id', reportId)
+      await loadReports()
+      await loadStats()
+    }
+
+    function promptDelete(userId, username) {
+      deleteTarget = userId
+      document.getElementById('delete-name').textContent = username
+      document.getElementById('delete-modal').classList.remove('hidden')
+    }
+
+    function closeDeleteModal() {
+      document.getElementById('delete-modal').classList.add('hidden')
+      deleteTarget = null
+    }
+
+    async function confirmDelete() {
+      if (!deleteTarget) return
+      const sb = getSupabase()
+
+      // Delete photo from storage
+      const { data: profile } = await sb.from('profiles').select('photo_url').eq('id', deleteTarget).single()
+      if (profile?.photo_url) {
+        const path = profile.photo_url.split('/photos/')[1]
+        if (path) await sb.storage.from('photos').remove([path])
+      }
+
+      // Delete profile (cascade deletes votes)
+      await sb.from('profiles').delete().eq('id', deleteTarget)
+
+      closeDeleteModal()
+      await Promise.all([loadStats(), loadReports(), loadUsers()])
+    }
+
+    function switchTab(tab) {
+      const tabs = ['reports', 'users']
+      tabs.forEach(t => {
+        document.getElementById(`tab-content-${t}`).classList.toggle('hidden', t !== tab)
+        const btn = document.getElementById(`tab-${t}`)
+        btn.className = t === tab
+          ? 'px-5 py-2 rounded-lg text-sm font-medium transition-colors bg-white text-gray-950'
+          : 'px-5 py-2 rounded-lg text-sm font-medium transition-colors text-gray-400 hover:text-white'
+      })
+    }
+
+    init()
+  </script>
+</body>
+</html>

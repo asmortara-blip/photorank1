@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PhotoRank – Search</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="style.css" />
+  <meta name="theme-color" content="#7c3aed" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script src="common.js"></script>
+  <style>
+    /* ── Search bar ────────────────────────────────────────────────────── */
+    .search-wrap {
+      position: relative;
+      max-width: 560px;
+      margin: 0 auto 32px;
+    }
+    .search-icon {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+    }
+    #search-input {
+      width: 100%;
+      padding: 14px 48px 14px 48px;
+      border-radius: 16px;
+      font-size: 16px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+      box-sizing: border-box;
+    }
+    #search-input:focus {
+      border-color: rgba(124,58,237,.6);
+      box-shadow: 0 0 0 3px rgba(124,58,237,.12);
+    }
+    #clear-btn {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 18px;
+      cursor: pointer;
+      line-height: 1;
+      display: none;
+    }
+    #clear-btn:hover { color: var(--text); }
+
+    /* ── Category chips ─────────────────────────────────────────────── */
+    .cat-scroll {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: none;
+      margin-bottom: 28px;
+    }
+    .cat-scroll::-webkit-scrollbar { display: none; }
+    .cat-tab {
+      padding: 7px 18px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all .15s;
+      flex-shrink: 0;
+    }
+    .cat-tab.active {
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      border-color: transparent;
+      color: white;
+    }
+    .cat-tab:hover:not(.active) { border-color: rgba(124,58,237,.4); color: var(--text); }
+
+    /* ── Result grid ────────────────────────────────────────────────── */
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 14px;
+    }
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      overflow: hidden;
+      text-decoration: none;
+      color: inherit;
+      transition: transform .15s, border-color .15s;
+      display: block;
+    }
+    .result-card:hover { transform: translateY(-3px); border-color: rgba(124,58,237,.4); }
+    .result-card img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      display: block;
+    }
+    .result-card-body {
+      padding: 10px 12px 12px;
+    }
+    .result-name {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .result-elo {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ── States ────────────────────────────────────────────────────── */
+    .state-box {
+      text-align: center;
+      padding: 60px 24px;
+      color: var(--muted);
+    }
+    .state-box .icon { font-size: 44px; margin-bottom: 14px; }
+    .state-box h3 { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+
+    /* ── Skel grid ──────────────────────────────────────────────── */
+    .skel-card {
+      border-radius: 18px;
+      overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav class="glass-nav">
+    <div style="max-width:1100px;margin:0 auto;padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;">
+      <a href="index.html" style="font-size:18px;font-weight:800;letter-spacing:-.02em;text-decoration:none;color:inherit;">
+        Photo<span class="grad-text">Rank</span>
+      </a>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <div id="nav-actions" style="display:flex;gap:8px;align-items:center;"></div>
+      </div>
+    </div>
+  </nav>
+
+  <div style="max-width:1100px;margin:0 auto;padding:32px 24px 100px;">
+
+    <!-- Page header -->
+    <div style="margin-bottom:28px;">
+      <h1 style="font-size:clamp(22px,4vw,32px);font-weight:900;letter-spacing:-.02em;margin-bottom:4px;">Discover</h1>
+      <p style="color:var(--muted);font-size:14px;">Search by name or browse by category</p>
+    </div>
+
+    <!-- Search bar -->
+    <div class="search-wrap">
+      <span class="search-icon">
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="m21 21-4.35-4.35"/>
+        </svg>
+      </span>
+      <input id="search-input" type="search" placeholder="Search by username…"
+        oninput="onSearchInput(this.value)" autocomplete="off" spellcheck="false" />
+      <button id="clear-btn" onclick="clearSearch()">×</button>
+    </div>
+
+    <!-- Category chips -->
+    <div class="cat-scroll" id="cat-row">
+      <button class="cat-tab active" data-cat="" onclick="selectCat('')">All People</button>
+      <!-- Populated by JS -->
+    </div>
+
+    <!-- Section label -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <p id="section-label" style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;"></p>
+      <p id="result-count" style="font-size:13px;color:var(--muted);"></p>
+    </div>
+
+    <!-- Results -->
+    <div id="results-area">
+      <!-- Skeleton -->
+      <div id="skel" class="result-grid">
+        <div class="skel-card"><div class="skeleton" style="aspect-ratio:1;"></div><div style="padding:10px 12px 12px;"><div class="skeleton" style="height:12px;width:70%;border-radius:6px;margin-bottom:6px;"></div><div class="skeleton" style="height:10px;width:40%;border-radius:5px;"></div></div></div>
+        <div class="skel-card"><div class="skeleton" style="aspect-ratio:1;"></div><div style="padding:10px 12px 12px;"><div class="skeleton" style="height:12px;width:60%;border-radius:6px;margin-bottom:6px;"></div><div class="skeleton" style="height:10px;width:45%;border-radius:5px;"></div></div></div>
+        <div class="skel-card"><div class="skeleton" style="aspect-ratio:1;"></div><div style="padding:10px 12px 12px;"><div class="skeleton" style="height:12px;width:75%;border-radius:6px;margin-bottom:6px;"></div><div class="skeleton" style="height:10px;width:35%;border-radius:5px;"></div></div></div>
+        <div class="skel-card"><div class="skeleton" style="aspect-ratio:1;"></div><div style="padding:10px 12px 12px;"><div class="skeleton" style="height:12px;width:65%;border-radius:6px;margin-bottom:6px;"></div><div class="skeleton" style="height:10px;width:50%;border-radius:5px;"></div></div></div>
+        <div class="skel-card"><div class="skeleton" style="aspect-ratio:1;"></div><div style="padding:10px 12px 12px;"><div class="skeleton" style="height:12px;width:80%;border-radius:6px;margin-bottom:6px;"></div><div class="skeleton" style="height:10px;width:40%;border-radius:5px;"></div></div></div>
+        <div class="skel-card"><div class="skeleton" style="aspect-ratio:1;"></div><div style="padding:10px 12px 12px;"><div class="skeleton" style="height:12px;width:55%;border-radius:6px;margin-bottom:6px;"></div><div class="skeleton" style="height:10px;width:45%;border-radius:5px;"></div></div></div>
+      </div>
+      <div id="result-grid" class="result-grid" style="display:none;"></div>
+      <div id="empty-state" style="display:none;">
+        <div class="state-box">
+          <div class="icon">🔍</div>
+          <h3>No results found</h3>
+          <p>Try a different name or browse a category.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Mobile nav -->
+  <nav class="mobile-nav">
+    <a href="vote.html" class="mobile-nav-item">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Vote
+    </a>
+    <a href="leaderboard.html" class="mobile-nav-item">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>Ranks
+    </a>
+    <a href="search.html" class="mobile-nav-item active">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="m21 21-4.35-4.35"/></svg>Search
+    </a>
+    <a href="profile.html" class="mobile-nav-item">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>Profile
+    </a>
+  </nav>
+
+  <script>
+    const CATEGORIES = [
+      'Student','Athlete','Artist','Gamer','Musician',
+      'Traveler','Foodie','Fitness','Tech','Fashion'
+    ]
+    let selectedCat = ''
+    let searchQuery = ''
+    let debounceTimer = null
+    let catIdMap = {}   // name → uuid
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+    async function init() {
+      initNav()
+      const { data: { user } } = await getSupabase().auth.getUser()
+      if (!user) { window.location.href = 'index.html'; return }
+
+      // Build category chips
+      const catRow = document.getElementById('cat-row')
+      // Fetch category IDs
+      const { data: cats } = await getSupabase().from('categories').select('id,name')
+      cats?.forEach(c => { catIdMap[c.name] = c.id })
+
+      CATEGORIES.forEach(name => {
+        const btn = document.createElement('button')
+        btn.className = 'cat-tab'
+        btn.dataset.cat = name
+        btn.textContent = name
+        btn.onclick = () => selectCat(name)
+        catRow.appendChild(btn)
+      })
+
+      // Check URL params
+      const params = new URLSearchParams(location.search)
+      const q = params.get('q')
+      const cat = params.get('cat')
+      if (q) {
+        document.getElementById('search-input').value = q
+        searchQuery = q
+        document.getElementById('clear-btn').style.display = 'block'
+      }
+      if (cat && CATEGORIES.includes(cat)) {
+        selectedCat = cat
+      }
+
+      loadResults()
+    }
+
+    // ── Search input ─────────────────────────────────────────────────────────
+    function onSearchInput(val) {
+      searchQuery = val.trim()
+      document.getElementById('clear-btn').style.display = val ? 'block' : 'none'
+      clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(loadResults, 280)
+    }
+
+    function clearSearch() {
+      document.getElementById('search-input').value = ''
+      searchQuery = ''
+      document.getElementById('clear-btn').style.display = 'none'
+      loadResults()
+    }
+
+    // ── Category filter ──────────────────────────────────────────────────────
+    function selectCat(cat) {
+      selectedCat = cat
+      document.querySelectorAll('.cat-tab').forEach(b =>
+        b.classList.toggle('active', b.dataset.cat === cat)
+      )
+      searchQuery = ''
+      document.getElementById('search-input').value = ''
+      document.getElementById('clear-btn').style.display = 'none'
+      loadResults()
+    }
+
+    // ── Load results ──────────────────────────────────────────────────────────
+    async function loadResults() {
+      showSkel()
+      const sb = getSupabase()
+      let profiles = []
+
+      if (searchQuery.length >= 1) {
+        // Username search
+        const { data } = await sb
+          .from('profiles')
+          .select('id,username,photo_url,elo_score')
+          .ilike('username', `%${searchQuery}%`)
+          .eq('opted_out', false)
+          .order('elo_score', { ascending: false })
+          .limit(48)
+        profiles = data ?? []
+        document.getElementById('section-label').textContent = 'Search results'
+      } else if (selectedCat) {
+        // Category browse
+        const catId = catIdMap[selectedCat]
+        if (!catId) { showEmpty(); return }
+        const { data: pcRows } = await sb
+          .from('profile_categories')
+          .select('profile_id')
+          .eq('category_id', catId)
+
+        const ids = pcRows?.map(r => r.profile_id) ?? []
+        if (!ids.length) { showEmpty(); return }
+
+        const { data } = await sb
+          .from('profiles')
+          .select('id,username,photo_url,elo_score')
+          .in('id', ids)
+          .eq('opted_out', false)
+          .order('elo_score', { ascending: false })
+          .limit(48)
+        profiles = data ?? []
+        document.getElementById('section-label').textContent = selectedCat
+      } else {
+        // Default: top people
+        const { data } = await sb
+          .from('profiles')
+          .select('id,username,photo_url,elo_score')
+          .eq('opted_out', false)
+          .order('elo_score', { ascending: false })
+          .limit(48)
+        profiles = data ?? []
+        document.getElementById('section-label').textContent = 'Top Ranked'
+      }
+
+      renderResults(profiles)
+    }
+
+    // ── Render ────────────────────────────────────────────────────────────────
+    function renderResults(profiles) {
+      document.getElementById('skel').style.display = 'none'
+      document.getElementById('empty-state').style.display = 'none'
+
+      const grid = document.getElementById('result-grid')
+      const countEl = document.getElementById('result-count')
+
+      if (!profiles.length) {
+        grid.style.display = 'none'
+        document.getElementById('empty-state').style.display = 'block'
+        countEl.textContent = ''
+        return
+      }
+
+      countEl.textContent = `${profiles.length} people`
+      grid.style.display = 'grid'
+      grid.innerHTML = profiles.map(p => `
+        <a href="profile.html?id=${p.id}" class="result-card">
+          <img src="${escapeHtml(p.photo_url)}" alt="${escapeHtml(p.username)}"
+            loading="lazy" onerror="this.style.background='var(--surface)'" />
+          <div class="result-card-body">
+            <div class="result-name">${escapeHtml(p.username)}</div>
+            <div class="result-elo">
+              ${tierBadgeHtml(p.elo_score)}
+              <span>${p.elo_score} ELO</span>
+            </div>
+          </div>
+        </a>
+      `).join('')
+    }
+
+    function showSkel() {
+      document.getElementById('skel').style.display = 'grid'
+      document.getElementById('result-grid').style.display = 'none'
+      document.getElementById('empty-state').style.display = 'none'
+      document.getElementById('result-count').textContent = ''
+    }
+
+    function showEmpty() {
+      document.getElementById('skel').style.display = 'none'
+      document.getElementById('result-grid').style.display = 'none'
+      document.getElementById('empty-state').style.display = 'block'
+      document.getElementById('result-count').textContent = ''
+    }
+
+    init()
+  </script>
+</body>
+</html>

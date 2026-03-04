@@ -1,0 +1,40 @@
+{
+  "name": "PhotoRank",
+  "short_name": "PhotoRank",
+  "description": "Head-to-head photo voting ranked by ELO",
+  "start_url": "./vote.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a0f",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "categories": ["social", "entertainment"],
+  "shortcuts": [
+    {
+      "name": "Vote",
+      "short_name": "Vote",
+      "url": "./vote.html",
+      "description": "Jump to voting"
+    },
+    {
+      "name": "Leaderboard",
+      "short_name": "Ranks",
+      "url": "./leaderboard.html",
+      "description": "See the rankings"
+    }
+  ]
+}

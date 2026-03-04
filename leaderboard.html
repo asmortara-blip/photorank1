@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#7c3aed" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PhotoRank – Leaderboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script src="common.js"></script>
+  <style>
+    .podium-col { display:flex;flex-direction:column;align-items:center;gap:10px; }
+    .podium-photo { border-radius:50%;object-fit:cover;border:3px solid transparent;transition:transform .2s;cursor:pointer; }
+    .podium-photo:hover { transform:scale(1.06); }
+    .podium-col.rank-1 .podium-photo { border-color:#fbbf24;box-shadow:0 0 40px rgba(251,191,36,0.3); }
+    .podium-col.rank-2 .podium-photo { border-color:#94a3b8;box-shadow:0 0 24px rgba(148,163,184,0.15); }
+    .podium-col.rank-3 .podium-photo { border-color:#b45309;box-shadow:0 0 20px rgba(180,83,9,0.2); }
+    .podium-base { display:flex;align-items:flex-end;justify-content:center;border-radius:10px;font-weight:800;font-size:18px;background:var(--surface);border:1px solid var(--border); }
+    .lb-row { display:flex;align-items:center;gap:14px;padding:10px 14px;border-radius:12px;transition:background .15s;cursor:pointer;text-decoration:none;color:inherit; }
+    .lb-row:hover { background:var(--surface); }
+    .lb-row.my-row { background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2); }
+    .feed-pill { display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px; }
+    .my-banner { background:linear-gradient(135deg,rgba(124,58,237,0.15),rgba(79,70,229,0.08));border:1px solid rgba(124,58,237,0.3);border-radius:14px;padding:14px 18px;display:flex;align-items:center;gap:14px; }
+    .share-btn { display:flex;align-items:center;gap:6px;padding:8px 16px;border:1px solid var(--border);border-radius:10px;background:none;color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;transition:border-color .15s,color .15s; }
+    .share-btn:hover { border-color:rgba(255,255,255,0.3);color:var(--text); }
+    .filter-chip { padding:5px 16px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0; }
+    .filter-chip.active { background:linear-gradient(135deg,#7c3aed,#4f46e5);border-color:transparent;color:white; }
+    .filter-chip:hover:not(.active) { border-color:rgba(124,58,237,.4);color:var(--text); }
+    #cat-filter-row::-webkit-scrollbar { display:none; }
+  </style>
+</head>
+<body>
+
+  <nav class="glass-nav">
+    <div style="max-width:1100px;margin:0 auto;padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;">
+      <a href="index.html" style="font-size:18px;font-weight:800;letter-spacing:-.02em;text-decoration:none;color:inherit;">Photo<span class="grad-text">Rank</span></a>
+      <div class="desktop-links" style="display:flex;gap:8px;align-items:center;">
+        <a href="vote.html" style="color:var(--muted);text-decoration:none;font-size:14px;padding:6px 12px;border-radius:8px;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">Vote</a>
+        <a href="profile.html" style="color:var(--muted);text-decoration:none;font-size:14px;padding:6px 12px;border-radius:8px;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">Profile</a>
+        <div id="nav-actions" style="display:flex;gap:8px;align-items:center;"></div>
+      </div>
+    </div>
+  </nav>
+
+  <div style="max-width:1100px;margin:0 auto;padding:40px 24px 80px;">
+    <div style="display:flex;flex-direction:column;gap:32px;">
+
+      <!-- Header -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+          <div>
+            <h1 style="font-size:clamp(24px,4vw,36px);font-weight:900;letter-spacing:-.02em;margin-bottom:4px;">Leaderboard</h1>
+            <p style="color:var(--muted);font-size:14px;display:flex;align-items:center;gap:6px;">
+              <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block;animation:pdot 2s infinite;"></span>
+              Updates live
+            </p>
+          </div>
+          <button class="share-btn" onclick="shareBoard()">
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+            <span id="share-label">Share</span>
+          </button>
+        </div>
+
+        <!-- My banner -->
+        <div id="my-banner" style="display:none;margin-bottom:20px;">
+          <div class="my-banner">
+            <img id="my-photo" src="" alt="" style="width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid rgba(124,58,237,0.5);" />
+            <div style="flex:1;min-width:0;">
+              <p style="font-weight:700;font-size:15px;" id="my-rank-label"></p>
+              <p style="color:var(--muted);font-size:13px;" id="my-rank-sub"></p>
+            </div>
+            <a href="vote.html" class="btn-accent" style="text-decoration:none;font-size:13px;padding:8px 16px;flex-shrink:0;">Vote →</a>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tab-bar" style="max-width:360px;margin-bottom:16px;">
+          <button class="tab-btn active" onclick="switchTab('all')">🏆 All Time</button>
+          <button class="tab-btn" onclick="switchTab('weekly')">📅 This Week</button>
+          <button class="tab-btn" onclick="switchTab('hot')">🔥 Hot Now</button>
+        </div>
+
+        <!-- Category filter -->
+        <div id="cat-filter-row" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;margin-bottom:20px;">
+          <button class="filter-chip active" data-cat="" onclick="selectCatFilter('')">All</button>
+        </div>
+
+        <!-- Podium skeleton -->
+        <div id="skeleton-podium" style="display:flex;justify-content:center;gap:20px;padding:32px 0;align-items:flex-end;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;"><div class="skeleton" style="width:76px;height:76px;border-radius:50%;"></div><div class="skeleton" style="width:56px;height:10px;border-radius:6px;"></div><div class="skeleton" style="width:64px;height:64px;border-radius:8px;"></div></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;"><div class="skeleton" style="width:92px;height:92px;border-radius:50%;"></div><div class="skeleton" style="width:68px;height:10px;border-radius:6px;"></div><div class="skeleton" style="width:64px;height:88px;border-radius:8px;"></div></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;"><div class="skeleton" style="width:64px;height:64px;border-radius:50%;"></div><div class="skeleton" style="width:50px;height:10px;border-radius:6px;"></div><div class="skeleton" style="width:64px;height:44px;border-radius:8px;"></div></div>
+        </div>
+        <div id="podium" style="display:none;justify-content:center;align-items:flex-end;gap:10px;padding:32px 0 24px;flex-wrap:nowrap;"></div>
+      </div>
+
+      <!-- List + Feed -->
+      <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;">
+
+        <div style="flex:1;min-width:280px;">
+          <p style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;" id="list-label">Rankings</p>
+          <div id="skeleton-list" style="display:flex;flex-direction:column;gap:6px;">
+            <div class="skeleton" style="height:50px;border-radius:12px;"></div>
+            <div class="skeleton" style="height:50px;border-radius:12px;"></div>
+            <div class="skeleton" style="height:50px;border-radius:12px;"></div>
+            <div class="skeleton" style="height:50px;border-radius:12px;"></div>
+          </div>
+          <div id="list" style="display:none;"></div>
+          <p id="empty" style="display:none;color:var(--muted);text-align:center;padding:40px 0;">No data yet. <a href="upload.html" style="color:#c4b5fd;">Be the first!</a></p>
+        </div>
+
+        <!-- Live feed -->
+        <div style="width:250px;flex-shrink:0;">
+          <p style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+            <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;animation:pdot 2s infinite;"></span>
+            Live Votes
+          </p>
+          <div id="live-feed" style="display:flex;flex-direction:column;gap:5px;max-height:480px;overflow-y:auto;">
+            <p style="color:var(--muted);font-size:13px;">Waiting for votes…</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile nav -->
+  <nav class="mobile-nav">
+    <a href="vote.html" class="mobile-nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Vote</a>
+    <a href="leaderboard.html" class="mobile-nav-item active"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>Ranks</a>
+    <a href="search.html" class="mobile-nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="m21 21-4.35-4.35"/></svg>Search</a>
+    <a href="profile.html" class="mobile-nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>Profile</a>
+  </nav>
+
+  <script>
+    let myId = null, profileCache = [], feedItems = [], currentTab = 'all'
+    let selectedCat = '', catIdMap = {}
+    initNav()
+
+    // ── Service worker ────────────────────────────────────────────────────────
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {})
+    }
+
+    async function init() {
+      const { data: { user } } = await getSupabase().auth.getUser()
+      myId = user?.id ?? null
+      await buildCatChips()
+      await loadBoard('all')
+      subscribeVotes()
+    }
+
+    async function buildCatChips() {
+      const { data: cats } = await getSupabase().from('categories').select('id,name').order('name')
+      if (!cats) return
+      const row = document.getElementById('cat-filter-row')
+      cats.forEach(c => {
+        catIdMap[c.name] = c.id
+        const btn = document.createElement('button')
+        btn.className = 'filter-chip'
+        btn.dataset.cat = c.name
+        btn.textContent = c.name
+        btn.onclick = () => selectCatFilter(c.name)
+        row.appendChild(btn)
+      })
+    }
+
+    function selectCatFilter(cat) {
+      selectedCat = cat
+      document.querySelectorAll('.filter-chip').forEach(b =>
+        b.classList.toggle('active', b.dataset.cat === cat)
+      )
+      loadBoard(currentTab)
+    }
+
+    async function loadBoard(tab) {
+      currentTab = tab
+      document.getElementById('skeleton-podium').style.display = 'flex'
+      document.getElementById('skeleton-list').style.display  = 'flex'
+      document.getElementById('podium').style.display = 'none'
+      document.getElementById('list').style.display   = 'none'
+      document.getElementById('empty').style.display  = 'none'
+
+      const sb = getSupabase()
+      let profiles = []
+
+      if (tab === 'all') {
+        document.getElementById('list-label').textContent = 'All Time Rankings'
+        const { data } = await sb.from('profiles').select('id,username,photo_url,elo_score,vote_count').eq('opted_out',false).order('elo_score',{ascending:false}).limit(100)
+        profiles = data ?? []
+      } else if (tab === 'weekly') {
+        document.getElementById('list-label').textContent = 'This Week — Most Wins'
+        const since = new Date(Date.now() - 7*24*3600*1000).toISOString()
+        const { data: votes } = await sb.from('votes').select('winner_id').gte('created_at', since)
+        const counts = {}
+        votes?.forEach(v => { counts[v.winner_id] = (counts[v.winner_id]||0)+1 })
+        const top = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,50)
+        if (top.length) {
+          const ids = top.map(([id])=>id)
+          const { data: profs } = await sb.from('profiles').select('id,username,photo_url,elo_score,vote_count').in('id',ids)
+          profiles = top.map(([id,wins]) => ({ ...(profs?.find(p=>p.id===id)??{}), weekly_wins: wins }))
+            .filter(p => p.username)
+        }
+      } else if (tab === 'hot') {
+        document.getElementById('list-label').textContent = '🔥 Hot Right Now — Last 24h'
+        const since = new Date(Date.now() - 24*3600*1000).toISOString()
+        const { data: votes } = await sb.from('votes').select('winner_id').gte('created_at', since)
+        const counts = {}
+        votes?.forEach(v => { counts[v.winner_id] = (counts[v.winner_id]||0)+1 })
+        const top = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,50)
+        if (top.length) {
+          const ids = top.map(([id])=>id)
+          const { data: profs } = await sb.from('profiles').select('id,username,photo_url,elo_score,vote_count').in('id',ids)
+          profiles = top.map(([id,wins]) => ({ ...(profs?.find(p=>p.id===id)??{}), hot_wins: wins }))
+            .filter(p => p.username)
+        }
+      }
+
+      // ── Category filter ──────────────────────────────────────────────────
+      if (selectedCat && catIdMap[selectedCat]) {
+        const catId = catIdMap[selectedCat]
+        const { data: pcRows } = await getSupabase()
+          .from('profile_categories').select('profile_id').eq('category_id', catId)
+        const catIds = new Set(pcRows?.map(r => r.profile_id) ?? [])
+        profiles = profiles.filter(p => catIds.has(p.id))
+      }
+
+      profileCache = profiles
+
+      document.getElementById('skeleton-podium').style.display = 'none'
+      document.getElementById('skeleton-list').style.display   = 'none'
+
+      if (!profiles.length) { document.getElementById('empty').style.display = 'block'; return }
+
+      // My banner (all time only)
+      if (tab === 'all' && myId) {
+        const myIdx = profiles.findIndex(p => p.id === myId)
+        if (myIdx !== -1) {
+          const me = profiles[myIdx]
+          document.getElementById('my-photo').src = me.photo_url
+          document.getElementById('my-rank-label').textContent = `You're ranked #${myIdx+1} of ${profiles.length}`
+          document.getElementById('my-rank-sub').textContent = `ELO ${me.elo_score} · ${tierBadgeHtml(me.elo_score).replace(/<[^>]+>/g,' ').trim()}`
+          document.getElementById('my-banner').style.display = 'block'
+        } else {
+          document.getElementById('my-banner').style.display = 'none'
+        }
+      } else {
+        document.getElementById('my-banner').style.display = 'none'
+      }
+
+      renderPodium(profiles.slice(0,3))
+      renderList(profiles.slice(3), tab)
+    }
+
+    function renderPodium(top) {
+      const podium = document.getElementById('podium')
+      podium.style.display = 'flex'
+      const order = top.length===1?[top[0]]:top.length===2?[top[1],top[0]]:[top[1],top[0],top[2]]
+      const rankOf = p => top.indexOf(p)+1
+      const sizes = [76,96,68], heights = [72,96,52]
+      const labels = ['🥈','🥇','🥉']
+      const eloColors = ['#94a3b8','#fbbf24','#b45309']
+      const rankCls = ['rank-2','rank-1','rank-3']
+
+      podium.innerHTML = order.map((p,i) => {
+        const rank = rankOf(p)
+        const sz = sizes[i], ht = heights[i]
+        const score = currentTab==='weekly' ? `${p.weekly_wins} wins` : currentTab==='hot' ? `${p.hot_wins} wins` : p.elo_score
+        return `
+          <div class="podium-col ${rankCls[i]}" style="flex:1;max-width:130px;min-width:72px;">
+            <span style="font-size:20px;">${labels[i]}</span>
+            <img src="${escapeHtml(p.photo_url)}" alt="${escapeHtml(p.username)}"
+              class="podium-photo" style="width:${sz}px;height:${sz}px;"
+              onclick="window.location.href='profile.html?id=${p.id}'" />
+            <div style="text-align:center;">
+              <p style="font-weight:700;font-size:13px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.username)}</p>
+              <div style="margin:2px 0;">${tierBadgeHtml(p.elo_score)}</div>
+              <p style="font-size:12px;font-weight:700;color:${eloColors[i]};">${score}</p>
+            </div>
+            <div class="podium-base" style="width:100%;height:${ht}px;font-size:13px;">#${rank}</div>
+          </div>`
+      }).join('')
+    }
+
+    function renderList(rest, tab) {
+      const el = document.getElementById('list')
+      el.style.display = 'block'
+      if (!rest.length) { el.innerHTML = ''; return }
+      el.innerHTML = rest.map((p,i) => {
+        const rank = i+4
+        const isMe = p.id === myId
+        const score = tab==='weekly' ? `${p.weekly_wins} wins this week` : tab==='hot' ? `${p.hot_wins} wins today` : `${p.vote_count} votes`
+        const eloDisplay = tab==='all' ? `<p style="font-weight:700;font-size:15px;">${p.elo_score}</p><p style="color:var(--muted);font-size:11px;">ELO</p>` : `<p style="font-weight:700;font-size:14px;">${tab==='hot'?p.hot_wins:p.weekly_wins}</p><p style="color:var(--muted);font-size:11px;">wins</p>`
+        return `
+          <a href="profile.html?id=${p.id}" class="lb-row ${isMe?'my-row':''}">
+            <span style="width:26px;text-align:center;font-size:13px;font-weight:600;color:var(--muted);flex-shrink:0;">${rank}</span>
+            <img src="${escapeHtml(p.photo_url)}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;flex-shrink:0;${isMe?'border:2px solid rgba(124,58,237,0.5);':''}" />
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                <p style="font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${isMe?'color:#c4b5fd;':''}">${escapeHtml(p.username)}</p>
+                ${tierBadgeHtml(p.elo_score)}
+              </div>
+              <p style="color:var(--muted);font-size:12px;">${score}</p>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">${eloDisplay}</div>
+          </a>`
+      }).join('')
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach((btn,i) => btn.classList.toggle('active', ['all','weekly','hot'][i]===tab))
+      loadBoard(tab)
+    }
+
+    // ── Realtime ────────────────────────────────────────────────────────────
+    function subscribeVotes() {
+      getSupabase().channel('lb-feed')
+        .on('postgres_changes', { event:'INSERT', schema:'public', table:'votes' }, handleVote)
+        .subscribe()
+    }
+
+    async function handleVote(payload) {
+      const { winner_id, loser_id } = payload.new
+      const missing = [winner_id, loser_id].filter(id => !profileCache.find(p=>p.id===id))
+      if (missing.length) {
+        const { data } = await getSupabase().from('profiles').select('id,username,photo_url,elo_score,vote_count').in('id',missing)
+        if (data) profileCache = [...profileCache, ...data]
+      }
+      const winner = profileCache.find(p=>p.id===winner_id)
+      const loser  = profileCache.find(p=>p.id===loser_id)
+      if (winner && loser) addFeedItem(winner, loser)
+      if (currentTab==='all') loadBoard('all')
+    }
+
+    function addFeedItem(winner, loser) {
+      const feed = document.getElementById('live-feed')
+      const placeholder = feed.querySelector('p')
+      if (placeholder) placeholder.remove()
+      const el = document.createElement('div')
+      el.className = 'feed-pill feed-item'
+      el.innerHTML = `
+        <img src="${escapeHtml(winner.photo_url)}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid rgba(34,197,94,0.4);flex-shrink:0;" />
+        <div style="flex:1;min-width:0;font-size:12px;overflow:hidden;">
+          <span style="color:#86efac;font-weight:600;">${escapeHtml(winner.username)}</span>
+          <span style="color:var(--muted);"> beat </span>
+          <span style="color:rgba(255,255,255,0.45);">${escapeHtml(loser.username)}</span>
+        </div>
+        <img src="${escapeHtml(loser.photo_url)}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;opacity:.3;flex-shrink:0;" />`
+      feed.prepend(el)
+      feedItems.unshift(el)
+      if (feedItems.length > 20) { feedItems.pop().remove() }
+    }
+
+    async function shareBoard() {
+      const url = window.location.href
+      const label = document.getElementById('share-label')
+      if (navigator.share) { try { await navigator.share({ title:'PhotoRank Leaderboard', url }) } catch {}; return }
+      try { await navigator.clipboard.writeText(url); label.textContent='Copied!'; setTimeout(()=>{label.textContent='Share'},2000) }
+      catch { prompt('Copy:', url) }
+    }
+
+    init()
+  </script>
+</body>
+</html>

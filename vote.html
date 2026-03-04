@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#7c3aed" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PhotoRank – Vote</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script src="common.js"></script>
+  <style>
+    .vs-badge { width:52px;height:52px;border-radius:50%;background:var(--bg);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;letter-spacing:.05em;color:var(--muted);flex-shrink:0;position:relative;z-index:2; }
+    .key-hint { position:absolute;top:14px;left:14px;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:4px 10px;font-size:12px;font-weight:600;color:rgba(255,255,255,0.45);backdrop-filter:blur(8px); }
+    .vote-counter-pill { display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:4px 14px;font-size:12px;color:var(--muted); }
+    .vote-counter-pill .dot { width:6px;height:6px;border-radius:50%;background:#22c55e;animation:pdot 2s infinite; }
+    @keyframes pdot{0%,100%{opacity:1}50%{opacity:.3}}
+    .modal-backdrop { position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:100;padding:24px;backdrop-filter:blur(4px); }
+    .radio-option { display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1px solid var(--border);cursor:pointer;transition:border-color .15s,background .15s; }
+    .radio-option:hover { border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.04); }
+    .radio-option input { accent-color:#ef4444; }
+    .skip-btn { background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;transition:color .15s,background .15s;padding:8px 16px;border-radius:8px; }
+    .skip-btn:hover { color:var(--text);background:var(--surface); }
+    .skip-btn:disabled { opacity:.35;cursor:not-allowed; }
+    .zoom-trigger { position:absolute;bottom:60px;right:10px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:rgba(255,255,255,0.5);font-size:12px;padding:4px 9px;cursor:pointer;backdrop-filter:blur(4px);transition:color .15s; }
+    .zoom-trigger:hover { color:white; }
+
+    /* ── Swipe ───────────────────────────────────────────────────────── */
+    .swipe-hint-overlay {
+      position:absolute;inset:0;border-radius:inherit;display:flex;align-items:center;justify-content:center;
+      opacity:0;transition:opacity .1s;pointer-events:none;z-index:5;
+    }
+    .swipe-hint-overlay .swipe-label {
+      background:rgba(34,197,94,0.9);color:white;font-size:22px;font-weight:900;
+      letter-spacing:.04em;padding:10px 28px;border-radius:999px;
+      transform:rotate(-8deg);border:2px solid rgba(255,255,255,0.3);
+    }
+    .swipe-hint-overlay.swipe-reject .swipe-label {
+      background:rgba(239,68,68,0.85);transform:rotate(8deg);
+    }
+    .vote-card-wrap { transition:transform .12s ease, box-shadow .12s ease; }
+
+    /* ── Preload shimmer ─────────────────────────────────────────────── */
+    @keyframes preloadPulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+    #preload-indicator { animation:preloadPulse 1.2s ease infinite; }
+  </style>
+</head>
+<body>
+
+  <!-- Offline banner -->
+  <div id="offline-banner">📵 Offline — votes will sync when you reconnect</div>
+
+  <!-- Nav -->
+  <nav class="glass-nav">
+    <div style="max-width:1200px;margin:0 auto;padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;">
+      <a href="index.html" style="font-size:18px;font-weight:800;letter-spacing:-.02em;text-decoration:none;color:inherit;">Photo<span class="grad-text">Rank</span></a>
+      <div class="desktop-links" style="display:flex;gap:8px;align-items:center;">
+        <a href="leaderboard.html" style="color:var(--muted);text-decoration:none;font-size:14px;padding:6px 12px;border-radius:8px;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">Leaderboard</a>
+        <a href="profile.html" style="color:var(--muted);text-decoration:none;font-size:14px;padding:6px 12px;border-radius:8px;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">Profile</a>
+        <div id="nav-actions" style="display:flex;gap:8px;align-items:center;"></div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Skeleton -->
+  <div id="skeleton" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 60px);padding:40px 24px;gap:32px;">
+    <div style="display:flex;gap:12px;width:100%;max-width:760px;justify-content:center;align-items:center;">
+      <div class="skeleton" style="flex:1;max-width:340px;aspect-ratio:3/4;border-radius:24px;"></div>
+      <div class="vs-badge">VS</div>
+      <div class="skeleton" style="flex:1;max-width:340px;aspect-ratio:3/4;border-radius:24px;"></div>
+    </div>
+  </div>
+
+  <!-- Rate limit -->
+  <div id="rate-limit" style="display:none;min-height:calc(100vh - 60px);align-items:center;justify-content:center;padding:40px 24px;">
+    <div class="glass-card" style="max-width:400px;padding:48px 40px;text-align:center;">
+      <div style="font-size:52px;margin-bottom:16px;">⏱</div>
+      <h2 style="font-size:22px;font-weight:800;margin-bottom:10px;">You're voting too fast!</h2>
+      <p style="color:var(--muted);line-height:1.7;font-size:15px;margin-bottom:28px;">100 votes per hour limit reached. Come back soon.</p>
+      <a href="leaderboard.html" class="btn-ghost" style="display:inline-block;text-decoration:none;">View Leaderboard</a>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div id="error-view" style="display:none;min-height:calc(100vh - 60px);align-items:center;justify-content:center;padding:40px 24px;text-align:center;flex-direction:column;gap:16px;">
+    <div style="font-size:48px;">🤔</div>
+    <p id="error-msg" style="color:var(--muted);font-size:17px;max-width:360px;line-height:1.6;"></p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:8px;">
+      <button onclick="fetchMatchup()" class="btn-accent">Try Again</button>
+      <a href="leaderboard.html" class="btn-ghost" style="text-decoration:none;">Leaderboard</a>
+    </div>
+  </div>
+
+  <!-- Empty: all seen -->
+  <div id="empty-view" style="display:none;min-height:calc(100vh - 60px);align-items:center;justify-content:center;padding:40px 24px;flex-direction:column;gap:16px;text-align:center;">
+    <div style="font-size:52px;">🎉</div>
+    <h2 style="font-size:22px;font-weight:800;">You've seen everyone!</h2>
+    <p style="color:var(--muted);max-width:340px;line-height:1.7;font-size:15px;">You've voted on all available matchups. Invite friends to unlock more!</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:8px;">
+      <button onclick="copyInvite()" class="btn-accent" id="invite-copy-btn">📋 Copy Invite Link</button>
+      <a href="leaderboard.html" class="btn-ghost" style="text-decoration:none;">Leaderboard</a>
+    </div>
+  </div>
+
+  <!-- Vote UI -->
+  <div id="vote-view" style="display:none;">
+    <!-- Header -->
+    <div style="text-align:center;padding:32px 24px 20px;">
+      <h1 style="font-size:clamp(20px,4vw,28px);font-weight:800;letter-spacing:-.02em;margin-bottom:10px;">Who looks better?</h1>
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">
+        <span class="vote-counter-pill">
+          <span class="dot"></span>
+          <span id="vote-counter">0 votes this hour</span>
+        </span>
+        <span id="streak-wrap" style="display:none;" class="streak-badge">
+          🔥 <span id="streak-count">0</span> streak
+        </span>
+      </div>
+      <p style="color:var(--muted);font-size:12px;margin-top:8px;">
+        <kbd style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;">1</kbd>
+        <kbd style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;">2</kbd> vote ·
+        <kbd style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;">S</kbd> skip ·
+        <kbd style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;">Z</kbd> zoom
+      </p>
+    </div>
+
+    <!-- Cards -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:0 24px;max-width:800px;margin:0 auto;">
+
+      <!-- Card A -->
+      <div class="vote-card-wrap card-in" id="wrap-a" onclick="castVote('a')">
+        <img id="photo-a" class="vote-card-img" src="" alt="" />
+        <div class="vote-card-overlay">
+          <div style="font-size:20px;font-weight:800;text-shadow:0 2px 8px rgba(0,0,0,0.5);" id="name-a"></div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+            <span style="font-size:12px;color:rgba(255,255,255,0.6);" id="elo-a"></span>
+            <span id="tier-a"></span>
+          </div>
+          <div id="cats-a" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;"></div>
+        </div>
+        <div class="vote-choose-hint">
+          <span style="background:rgba(255,255,255,0.15);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.2);border-radius:999px;padding:10px 24px;font-weight:700;font-size:15px;">Choose</span>
+        </div>
+        <div id="swipe-overlay-a" class="swipe-hint-overlay"><span class="swipe-label">PICK</span></div>
+        <div class="key-hint">1</div>
+        <button class="zoom-trigger" onclick="event.stopPropagation();openZoom('a')" title="Zoom (Z)">🔍</button>
+        <button onclick="event.stopPropagation();openReport('a')" title="Report"
+          style="position:absolute;top:14px;right:14px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:rgba(255,255,255,0.4);font-size:14px;padding:5px 8px;cursor:pointer;backdrop-filter:blur(4px);transition:color .15s,background .15s;"
+          onmouseover="this.style.color='#f87171';this.style.background='rgba(239,68,68,0.2)'"
+          onmouseout="this.style.color='rgba(255,255,255,0.4)';this.style.background='rgba(0,0,0,0.5)'">⚑</button>
+        <div id="delta-a" style="display:none;position:absolute;top:56px;right:14px;"></div>
+      </div>
+
+      <div class="vs-badge">VS</div>
+
+      <!-- Card B -->
+      <div class="vote-card-wrap card-in-delay" id="wrap-b" onclick="castVote('b')">
+        <img id="photo-b" class="vote-card-img" src="" alt="" />
+        <div class="vote-card-overlay">
+          <div style="font-size:20px;font-weight:800;text-shadow:0 2px 8px rgba(0,0,0,0.5);" id="name-b"></div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+            <span style="font-size:12px;color:rgba(255,255,255,0.6);" id="elo-b"></span>
+            <span id="tier-b"></span>
+          </div>
+          <div id="cats-b" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;"></div>
+        </div>
+        <div class="vote-choose-hint">
+          <span style="background:rgba(255,255,255,0.15);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.2);border-radius:999px;padding:10px 24px;font-weight:700;font-size:15px;">Choose</span>
+        </div>
+        <div id="swipe-overlay-b" class="swipe-hint-overlay"><span class="swipe-label">PICK</span></div>
+        <div class="key-hint">2</div>
+        <button class="zoom-trigger" onclick="event.stopPropagation();openZoom('b')" title="Zoom (Z)">🔍</button>
+        <button onclick="event.stopPropagation();openReport('b')" title="Report"
+          style="position:absolute;top:14px;right:14px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:rgba(255,255,255,0.4);font-size:14px;padding:5px 8px;cursor:pointer;backdrop-filter:blur(4px);transition:color .15s,background .15s;"
+          onmouseover="this.style.color='#f87171';this.style.background='rgba(239,68,68,0.2)'"
+          onmouseout="this.style.color='rgba(255,255,255,0.4)';this.style.background='rgba(0,0,0,0.5)'">⚑</button>
+        <div id="delta-b" style="display:none;position:absolute;top:56px;right:14px;"></div>
+      </div>
+
+    </div>
+
+    <div style="text-align:center;padding:24px 24px 48px;">
+      <button class="skip-btn" id="skip-btn" onclick="fetchMatchup()">Skip this matchup →</button>
+    </div>
+  </div>
+
+  <!-- Photo zoom modal -->
+  <div id="zoom-modal" class="zoom-modal" style="display:none;" onclick="closeZoom()">
+    <img id="zoom-img" src="" alt="" onclick="event.stopPropagation()" />
+  </div>
+
+  <!-- Report modal -->
+  <div id="report-modal" class="modal-backdrop" style="display:none;">
+    <div class="glass-card" style="width:100%;max-width:380px;padding:32px;">
+      <h3 style="font-size:20px;font-weight:800;margin-bottom:6px;">Report photo</h3>
+      <p style="color:var(--muted);font-size:14px;margin-bottom:20px;">Why are you flagging this?</p>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+        <label class="radio-option"><input type="radio" name="rr" value="inappropriate" checked /><span style="font-size:14px;">Inappropriate content</span></label>
+        <label class="radio-option"><input type="radio" name="rr" value="not_a_person" /><span style="font-size:14px;">Not a real person / AI generated</span></label>
+        <label class="radio-option"><input type="radio" name="rr" value="spam" /><span style="font-size:14px;">Spam or fake profile</span></label>
+        <label class="radio-option"><input type="radio" name="rr" value="other" /><span style="font-size:14px;">Other</span></label>
+      </div>
+      <p id="report-status" style="display:none;font-size:13px;margin-bottom:12px;"></p>
+      <div style="display:flex;gap:10px;">
+        <button onclick="submitReport()" style="flex:1;padding:11px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;font-weight:600;border:none;border-radius:10px;cursor:pointer;font-size:14px;">Submit</button>
+        <button onclick="closeReport()" class="btn-ghost" style="padding:11px 18px;font-size:14px;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile nav -->
+  <nav class="mobile-nav">
+    <a href="vote.html" class="mobile-nav-item active"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Vote</a>
+    <a href="leaderboard.html" class="mobile-nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>Ranks</a>
+    <a href="search.html" class="mobile-nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="m21 21-4.35-4.35"/></svg>Search</a>
+    <a href="profile.html" class="mobile-nav-item"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>Profile</a>
+  </nav>
+
+  <script>
+    let profileA = null, profileB = null, currentUser = null
+    let voting = false, reportTarget = null, zoomSide = null
+    let catsCache = {}      // profile_id → [category names]
+    let nextPair  = null    // preloaded [profileA, profileB]
+    let preloading = false  // true while background fetch is running
+    let allProfiles = []    // cached profile list (refreshed on each foreground fetch)
+
+    // ── Offline UI ─────────────────────────────────────────────────────────
+    window.addEventListener('offline', () => document.body.classList.add('is-offline'))
+    window.addEventListener('online',  () => document.body.classList.remove('is-offline'))
+    if (!navigator.onLine) document.body.classList.add('is-offline')
+
+    // ── Service worker registration ─────────────────────────────────────────
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {})
+    }
+
+    initNav()
+
+    async function init() {
+      const { data: { user } } = await getSupabase().auth.getUser()
+      if (!user) { window.location.href = 'index.html'; return }
+      currentUser = user
+      flushOfflineQueue()
+      updateCounter()
+      renderStreak()
+      fetchMatchup()
+    }
+
+    function updateCounter() {
+      const n = votesThisHour()
+      document.getElementById('vote-counter').textContent = `${n} vote${n === 1 ? '' : 's'} this hour`
+    }
+
+    function renderStreak() {
+      const { count } = getStreak()
+      const wrap = document.getElementById('streak-wrap')
+      if (count >= 3) {
+        document.getElementById('streak-count').textContent = count
+        wrap.style.display = 'inline-flex'
+      } else {
+        wrap.style.display = 'none'
+      }
+    }
+
+    // ── Matchup fetch + preload ──────────────────────────────────────────────
+    async function fetchMatchup() {
+      // If preloaded pair is ready, use it instantly — no skeleton flash
+      if (nextPair) {
+        const pair = nextPair
+        nextPair = null
+        profileA = pair[0]; profileB = pair[1]
+        renderCards()
+        show('vote-view')
+        preloadNextPair()   // start background preload for the one after
+        return
+      }
+
+      // No preloaded pair — full fetch with skeleton
+      show('skeleton')
+      const pair = await computePair()
+      if (!pair) return  // computePair already called show() for error/empty
+
+      profileA = pair[0]; profileB = pair[1]
+      markPairSeen(profileA.id, profileB.id)
+      await Promise.all([loadCats(profileA.id), loadCats(profileB.id)])
+      // Preload images
+      preloadImages(profileA.photo_url, profileB.photo_url)
+      renderCards()
+      show('vote-view')
+      preloadNextPair()
+    }
+
+    async function preloadNextPair() {
+      if (preloading) return
+      preloading = true
+      try {
+        const pair = await computePair(true /* silent */)
+        if (pair) {
+          await Promise.all([loadCats(pair[0].id), loadCats(pair[1].id)])
+          preloadImages(pair[0].photo_url, pair[1].photo_url)
+          nextPair = pair
+        }
+      } finally {
+        preloading = false
+      }
+    }
+
+    // Returns [profileA, profileB] or null. If silent=false it also calls show() on error.
+    async function computePair(silent = false) {
+      const sb = getSupabase()
+
+      // Refresh profile list if needed (do a fresh fetch when not silent)
+      if (!silent || !allProfiles.length) {
+        const { data, error } = await sb.from('profiles')
+          .select('id,username,photo_url,elo_score,vote_count')
+          .neq('id', currentUser.id)
+          .eq('opted_out', false)
+
+        if (error || !data || data.length < 2) {
+          if (!silent) showErr('Not enough profiles to match yet — invite some friends!')
+          return null
+        }
+        allProfiles = data
+      }
+
+      const { data: myVotes } = await sb.from('votes')
+        .select('winner_id,loser_id').eq('voter_id', currentUser.id)
+      const seenDb = new Set()
+      myVotes?.forEach(v => { seenDb.add(v.winner_id); seenDb.add(v.loser_id) })
+
+      const unseen   = allProfiles.filter(p => !seenDb.has(p.id))
+      const pool     = unseen.length >= 2 ? unseen : allProfiles
+      const shuffled = [...pool].sort(() => Math.random() - 0.5)
+
+      let pair = null
+      outer: for (let i = 0; i < shuffled.length - 1; i++) {
+        for (let j = i + 1; j < shuffled.length; j++) {
+          if (!hasPairBeenSeen(shuffled[i].id, shuffled[j].id)) {
+            pair = [shuffled[i], shuffled[j]]; break outer
+          }
+        }
+      }
+
+      if (!pair) {
+        if (unseen.length < 2) { if (!silent) show('empty-view'); return null }
+        sessionStorage.removeItem('pr_seen')
+        pair = [shuffled[0], shuffled[1]]
+      }
+
+      markPairSeen(pair[0].id, pair[1].id)
+      return pair
+    }
+
+    function preloadImages(...urls) {
+      urls.forEach(src => { const img = new Image(); img.src = src })
+    }
+
+    async function loadCats(id) {
+      if (catsCache[id]) return
+      const { data } = await getSupabase()
+        .from('profile_categories').select('categories(name)').eq('profile_id', id)
+      catsCache[id] = data?.map(r => r.categories?.name).filter(Boolean) ?? []
+    }
+
+    function renderCards() {
+      ;['a','b'].forEach(s => {
+        const p = s === 'a' ? profileA : profileB
+        document.getElementById(`photo-${s}`).src = p.photo_url
+        document.getElementById(`photo-${s}`).alt = p.username
+        document.getElementById(`name-${s}`).textContent = p.username
+        document.getElementById(`elo-${s}`).textContent = `ELO ${p.elo_score}`
+        document.getElementById(`tier-${s}`).innerHTML = tierBadgeHtml(p.elo_score)
+        document.getElementById(`delta-${s}`).style.display = 'none'
+        const cats = catsCache[p.id] || []
+        document.getElementById(`cats-${s}`).innerHTML = cats.slice(0,2).map(c =>
+          `<span style="font-size:10px;background:rgba(255,255,255,0.12);border-radius:999px;padding:2px 7px;color:rgba(255,255,255,0.7);">${escapeHtml(c)}</span>`
+        ).join('')
+        const wrap = document.getElementById(`wrap-${s}`)
+        wrap.classList.remove('winner-anim','loser-anim')
+        wrap.style.cssText = ''
+        // Reset swipe overlays
+        const ov = document.getElementById(`swipe-overlay-${s}`)
+        ov.style.opacity = '0'
+        ov.classList.remove('swipe-reject')
+      })
+      document.getElementById('skip-btn').disabled = false
+      updateCounter()
+      renderStreak()
+    }
+
+    async function castVote(choice) {
+      if (voting) return
+      if (!checkRateLimit()) { show('rate-limit'); return }
+      voting = true
+
+      const winner = choice === 'a' ? profileA : profileB
+      const loser  = choice === 'a' ? profileB : profileA
+      const ws = choice, ls = choice === 'a' ? 'b' : 'a'
+
+      const { winnerNew, loserNew } = calcEloUpdate(winner.elo_score, loser.elo_score)
+      showDelta(ws, winnerNew - winner.elo_score, true)
+      showDelta(ls, loserNew  - loser.elo_score,  false)
+
+      document.getElementById(`wrap-${ws}`).classList.add('winner-anim')
+      document.getElementById(`wrap-${ls}`).classList.add('loser-anim')
+      document.getElementById('skip-btn').disabled = true
+
+      // Streak
+      const streak = incrementStreak()
+      if (streak >= 3) {
+        const badge = document.getElementById('streak-wrap')
+        document.getElementById('streak-count').textContent = streak
+        badge.style.display = 'inline-flex'
+        badge.classList.add('streak-new')
+        setTimeout(() => badge.classList.remove('streak-new'), 500)
+      }
+
+      if (isOnline()) {
+        const sb = getSupabase()
+        const { error: voteErr } = await sb.from('votes').insert({
+          voter_id: currentUser.id, winner_id: winner.id, loser_id: loser.id
+        })
+        if (!voteErr) {
+          await Promise.all([
+            sb.from('profiles').update({ elo_score: winnerNew, vote_count: winner.vote_count + 1 }).eq('id', winner.id),
+            sb.from('profiles').update({ elo_score: loserNew,  vote_count: loser.vote_count  + 1 }).eq('id', loser.id),
+          ])
+        }
+      } else {
+        queueVote({ winner_id: winner.id, loser_id: loser.id })
+      }
+
+      winner.elo_score = winnerNew; winner.vote_count += 1
+      loser.elo_score  = loserNew;  loser.vote_count  += 1
+
+      setTimeout(() => { voting = false; fetchMatchup() }, 900)
+    }
+
+    function showDelta(side, delta, win) {
+      const el = document.getElementById(`delta-${side}`)
+      el.style.cssText = `
+        display:inline-block;
+        background:${win ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'};
+        border:1px solid ${win ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.4)'};
+        color:${win ? '#86efac' : '#fca5a5'};
+        border-radius:999px;padding:4px 12px;font-size:14px;font-weight:700;
+        backdrop-filter:blur(8px);
+        position:absolute;top:56px;right:14px;
+      `
+      el.textContent = fmtElo(delta)
+    }
+
+    // ── Touch swipe ──────────────────────────────────────────────────────────
+    let touchStartX = 0, touchStartY = 0, touchDeltaX = 0
+    let swiping = false
+    const SWIPE_THRESHOLD = 55   // px to trigger vote
+    const SWIPE_MAX = 130        // px where indicator hits full opacity
+
+    const voteArea = document.getElementById('vote-view')
+
+    voteArea.addEventListener('touchstart', e => {
+      if (voting) return
+      touchStartX = e.touches[0].clientX
+      touchStartY = e.touches[0].clientY
+      touchDeltaX = 0
+      swiping = true
+    }, { passive: true })
+
+    voteArea.addEventListener('touchmove', e => {
+      if (!swiping || voting) return
+      const dx = e.touches[0].clientX - touchStartX
+      const dy = e.touches[0].clientY - touchStartY
+
+      // Only handle predominantly horizontal swipes
+      if (Math.abs(dy) > Math.abs(dx)) return
+
+      touchDeltaX = dx
+      const progress = Math.min(Math.abs(dx) / SWIPE_MAX, 1)
+      const winSide  = dx > 0 ? 'a' : 'b'
+      const loseSide = dx > 0 ? 'b' : 'a'
+
+      // Tilt winner card toward swipe direction
+      document.getElementById(`wrap-${winSide}`).style.transform =
+        `translateX(${dx * 0.08}px) rotate(${dx * 0.012}deg)`
+      document.getElementById(`wrap-${winSide}`).style.boxShadow =
+        `0 0 ${progress * 48}px rgba(34,197,94,${progress * 0.35})`
+
+      // Dim loser card slightly
+      document.getElementById(`wrap-${loseSide}`).style.opacity =
+        String(1 - progress * 0.25)
+
+      // Show swipe overlay on winner card
+      const winOv = document.getElementById(`swipe-overlay-${winSide}`)
+      winOv.style.opacity = String(progress)
+      winOv.classList.remove('swipe-reject')
+
+      // Show reject overlay on loser card
+      const loseOv = document.getElementById(`swipe-overlay-${loseSide}`)
+      loseOv.style.opacity = String(progress * 0.6)
+      loseOv.classList.add('swipe-reject')
+    }, { passive: true })
+
+    voteArea.addEventListener('touchend', () => {
+      if (!swiping || voting) return
+      swiping = false
+
+      // Reset visual state on both cards
+      ;['a','b'].forEach(s => {
+        const wrap = document.getElementById(`wrap-${s}`)
+        wrap.style.transform = ''
+        wrap.style.boxShadow = ''
+        wrap.style.opacity   = ''
+        const ov = document.getElementById(`swipe-overlay-${s}`)
+        ov.style.opacity = '0'
+        ov.classList.remove('swipe-reject')
+      })
+
+      if (Math.abs(touchDeltaX) >= SWIPE_THRESHOLD) {
+        castVote(touchDeltaX > 0 ? 'a' : 'b')
+      }
+    }, { passive: true })
+
+    // ── Zoom ─────────────────────────────────────────────────────────────────
+    function openZoom(side) {
+      const p = side === 'a' ? profileA : profileB
+      document.getElementById('zoom-img').src = p.photo_url
+      document.getElementById('zoom-modal').style.display = 'flex'
+      zoomSide = side
+    }
+    function closeZoom() { document.getElementById('zoom-modal').style.display = 'none' }
+
+    // ── Report ────────────────────────────────────────────────────────────────
+    function openReport(side) {
+      reportTarget = side
+      document.getElementById('report-status').style.display = 'none'
+      document.querySelector('input[name="rr"][value="inappropriate"]').checked = true
+      document.getElementById('report-modal').style.display = 'flex'
+    }
+    function closeReport() { document.getElementById('report-modal').style.display = 'none'; reportTarget = null }
+    async function submitReport() {
+      const reason = document.querySelector('input[name="rr"]:checked')?.value
+      const reported = reportTarget === 'a' ? profileA : profileB
+      const statusEl = document.getElementById('report-status')
+      const { error } = await getSupabase().from('reports').insert({
+        reporter_id: currentUser.id, reported_user_id: reported.id, reason
+      })
+      if (error) { statusEl.textContent = 'Failed. Try again.'; statusEl.style.color='#f87171'; statusEl.style.display='block'; return }
+      statusEl.textContent = '✓ Report submitted. Thank you.'; statusEl.style.color='#86efac'; statusEl.style.display='block'
+      setTimeout(() => { closeReport(); fetchMatchup() }, 1200)
+    }
+
+    // ── Invite copy (empty state) ─────────────────────────────────────────────
+    async function copyInvite() {
+      const { data: { user } } = await getSupabase().auth.getUser()
+      if (!user) return
+      const code = await getOrCreateInviteCode(user.id)
+      const url = `${location.origin}${location.pathname.replace('vote.html','index.html')}?invite=${code}`
+      try { await navigator.clipboard.writeText(url) } catch { prompt('Copy:', url); return }
+      const btn = document.getElementById('invite-copy-btn')
+      btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = '📋 Copy Invite Link' }, 2000)
+    }
+
+    // ── Keyboard shortcuts ────────────────────────────────────────────────────
+    document.addEventListener('keydown', e => {
+      if (voting || document.getElementById('vote-view').style.display === 'none') return
+      if (document.getElementById('zoom-modal').style.display !== 'none') {
+        if (e.key==='Escape'||e.key==='z'||e.key==='Z') closeZoom(); return
+      }
+      if (e.key==='1') castVote('a')
+      else if (e.key==='2') castVote('b')
+      else if (e.key==='s'||e.key==='S') fetchMatchup()
+      else if (e.key==='z'||e.key==='Z') openZoom('a')
+      else if (e.key==='Escape') closeReport()
+    })
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function show(id) {
+      ;['skeleton','rate-limit','error-view','empty-view','vote-view'].forEach(i => {
+        document.getElementById(i).style.display = 'none'
+      })
+      const t = document.getElementById(id)
+      t.style.display = id === 'vote-view' ? 'block' : 'flex'
+    }
+    function showErr(msg) { document.getElementById('error-msg').textContent = msg; show('error-view') }
+
+    init()
+  </script>
+</body>
+</html>
