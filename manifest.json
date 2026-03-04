@@ -35,6 +35,12 @@
       "short_name": "Ranks",
       "url": "./leaderboard.html",
       "description": "See the rankings"
+    },
+    {
+      "name": "Parties",
+      "short_name": "Parties",
+      "url": "./parties.html",
+      "description": "Browse party photo competitions"
     }
   ]
 }
