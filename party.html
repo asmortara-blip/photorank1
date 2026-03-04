@@ -343,7 +343,11 @@
 
     // ── Vote on photo ──────────────────────────────────────────────────────────
     async function toggleVote(photoId) {
-      if (!currentUser) { window.location.href = 'index.html'; return }
+      if (!currentUser) {
+        showToast('Sign up to vote on party photos! →', 'info')
+        setTimeout(() => { window.location.href = 'index.html' }, 1800)
+        return
+      }
       const wasVoted = votedPhotoIds.has(photoId)
       const sb = getSupabase()
 
@@ -377,7 +381,11 @@
 
     // ── Upload photo ───────────────────────────────────────────────────────────
     function openUploadModal() {
-      if (!currentUser) { window.location.href = 'index.html'; return }
+      if (!currentUser) {
+        showToast('Sign up to add your party photos! →', 'info')
+        setTimeout(() => { window.location.href = 'index.html' }, 1800)
+        return
+      }
       document.getElementById('upload-modal').style.display = 'flex'
     }
     function closeUploadModal() {

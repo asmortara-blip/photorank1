@@ -290,7 +290,11 @@
 
     // ── Create party ────────────────────────────────────────────────────────
     function openCreateModal() {
-      if (!currentUser) { window.location.href = 'index.html'; return }
+      if (!currentUser) {
+        showToast('Sign up to create a party room! →', 'info')
+        setTimeout(() => { window.location.href = 'index.html' }, 1800)
+        return
+      }
       document.getElementById('create-modal').style.display = 'flex'
     }
     function closeCreateModal() { document.getElementById('create-modal').style.display = 'none' }

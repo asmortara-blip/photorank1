@@ -54,47 +54,51 @@
       </div>
 
       <h1 class="hero-title fade-up fade-up-d1">
-        Connect with your<br/>
-        <span class="grad-text">UChicago community</span>
+        UChicago's<br/>
+        <span class="grad-text">Party Rankings</span>
       </h1>
 
-      <p style="color:var(--muted);font-size:clamp(16px,2.5vw,20px);max-width:520px;margin:24px auto 48px;line-height:1.6;" class="fade-up fade-up-d2">
-        Meet fellow Maroons, compete in head-to-head matchups, and discuss what's happening on campus — all in one place.
+      <p style="color:var(--muted);font-size:clamp(16px,2.5vw,20px);max-width:540px;margin:24px auto 48px;line-height:1.6;" class="fade-up fade-up-d2">
+        Upload photos from any party. Campus votes on the best ones. See which house, frat, or RSO throws the hardest. Top 5 photos of the week go on Instagram.
       </p>
 
       <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;" class="fade-up fade-up-d3">
         <button onclick="showSignup()" class="btn-accent" style="font-size:16px;">
-          Get Started Free
+          Join the Competition
         </button>
-        <button onclick="showLogin()" class="btn-ghost" style="font-size:16px;">
-          Log In
-        </button>
+        <a href="parties.html" class="btn-ghost" style="font-size:16px;text-decoration:none;">
+          Browse Parties →
+        </a>
       </div>
 
-      <!-- Fake leaderboard preview -->
-      <div class="glass-card fade-up" style="margin-top:80px;width:100%;max-width:480px;padding:0;overflow:hidden;animation-delay:.4s;">
-        <div style="padding:16px 20px;border-bottom:1px solid var(--border);font-size:13px;color:var(--muted);font-weight:500;">
-          🏆 Live Leaderboard
+      <!-- Party leaderboard preview -->
+      <div class="glass-card fade-up" style="margin-top:64px;width:100%;max-width:500px;padding:0;overflow:hidden;animation-delay:.4s;">
+        <div style="padding:14px 20px;border-bottom:1px solid var(--border);font-size:13px;color:var(--muted);font-weight:500;display:flex;align-items:center;justify-content:space-between;">
+          <span>🎉 Party Rankings</span>
+          <span style="font-size:11px;background:rgba(155,0,0,.15);border:1px solid rgba(155,0,0,.25);border-radius:999px;padding:2px 8px;color:#FECACA;font-weight:600;">This Week</span>
         </div>
-        <div id="preview-lb" style="padding:8px 0;">
+        <div style="padding:8px 0;">
           <div style="display:flex;align-items:center;gap:12px;padding:10px 20px;">
             <span style="font-size:18px;">🥇</span>
-            <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#9B0000,#C1272D);"></div>
-            <div style="flex:1;"><div class="skeleton" style="height:12px;width:80px;margin-bottom:4px;"></div><div class="skeleton" style="height:9px;width:50px;"></div></div>
-            <span style="font-weight:700;font-size:15px;color:#FECACA;">1247</span>
+            <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#9B0000,#C1272D);flex-shrink:0;"></div>
+            <div style="flex:1;"><div class="skeleton" style="height:12px;width:120px;margin-bottom:4px;"></div><div class="skeleton" style="height:9px;width:70px;"></div></div>
+            <div style="text-align:right;"><span style="font-weight:700;font-size:14px;color:#FECACA;">847 votes</span></div>
           </div>
           <div style="display:flex;align-items:center;gap:12px;padding:10px 20px;">
             <span style="font-size:18px;">🥈</span>
-            <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#0ea5e9);"></div>
-            <div style="flex:1;"><div class="skeleton" style="height:12px;width:64px;margin-bottom:4px;"></div><div class="skeleton" style="height:9px;width:44px;"></div></div>
-            <span style="font-weight:700;font-size:15px;color:#818cf8;">1198</span>
+            <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#2563eb,#0ea5e9);flex-shrink:0;"></div>
+            <div style="flex:1;"><div class="skeleton" style="height:12px;width:100px;margin-bottom:4px;"></div><div class="skeleton" style="height:9px;width:60px;"></div></div>
+            <div style="text-align:right;"><span style="font-weight:700;font-size:14px;color:#94a3b8;">612 votes</span></div>
           </div>
           <div style="display:flex;align-items:center;gap:12px;padding:10px 20px;">
             <span style="font-size:18px;">🥉</span>
-            <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#db2777,#f43f5e);"></div>
-            <div style="flex:1;"><div class="skeleton" style="height:12px;width:70px;margin-bottom:4px;"></div><div class="skeleton" style="height:9px;width:48px;"></div></div>
-            <span style="font-weight:700;font-size:15px;color:#94a3b8;">1155</span>
+            <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#db2777,#f43f5e);flex-shrink:0;"></div>
+            <div style="flex:1;"><div class="skeleton" style="height:12px;width:90px;margin-bottom:4px;"></div><div class="skeleton" style="height:9px;width:55px;"></div></div>
+            <div style="text-align:right;"><span style="font-weight:700;font-size:14px;color:#fb923c;">441 votes</span></div>
           </div>
+        </div>
+        <div style="padding:12px 20px;border-top:1px solid var(--border);">
+          <a href="parties.html" style="font-size:13px;color:#FECACA;text-decoration:none;font-weight:600;">See all party rankings →</a>
         </div>
       </div>
     </section>
@@ -110,19 +114,19 @@
         <div class="glass-card fade-up" style="padding:32px 28px;">
           <div class="step-num" style="margin-bottom:20px;">1</div>
           <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;">Sign up</h3>
-          <p style="color:var(--muted);font-size:15px;line-height:1.6;">Use your @uchicago.edu email. UChicago students only.</p>
+          <p style="color:var(--muted);font-size:15px;line-height:1.6;">Use your @uchicago.edu email. UChicago students only — keeps it real.</p>
         </div>
 
         <div class="glass-card fade-up fade-up-d1" style="padding:32px 28px;">
           <div class="step-num" style="margin-bottom:20px;">2</div>
-          <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;">Upload your photo</h3>
-          <p style="color:var(--muted);font-size:15px;line-height:1.6;">Choose your best photo. You can update it any time from your profile.</p>
+          <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;">Go to a party</h3>
+          <p style="color:var(--muted);font-size:15px;line-height:1.6;">Scan the QR code at any event to upload your photos from the night.</p>
         </div>
 
         <div class="glass-card fade-up fade-up-d2" style="padding:32px 28px;">
           <div class="step-num" style="margin-bottom:20px;">3</div>
-          <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;">Connect &amp; discuss</h3>
-          <p style="color:var(--muted);font-size:15px;line-height:1.6;">Vote on matchups, post anonymously, and join campus discussions all in one spot.</p>
+          <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;">Compete &amp; rank</h3>
+          <p style="color:var(--muted);font-size:15px;line-height:1.6;">Campus votes on the best photos. Top party of the week gets posted to Instagram.</p>
         </div>
 
       </div>
