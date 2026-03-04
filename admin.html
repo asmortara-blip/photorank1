@@ -81,11 +81,24 @@
 
     <!-- Users tab -->
     <div id="tab-content-users" class="hidden">
-      <div class="mb-4">
-        <input id="user-search" oninput="filterUsers()" type="text" placeholder="Search by username…"
-          class="w-full max-w-sm px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-gray-500 text-white" />
+      <div class="flex flex-wrap gap-3 mb-4 items-center">
+        <input id="user-search" oninput="filterUsers()" type="text" placeholder="Search by username or email…"
+          class="flex-1 min-w-0 max-w-sm px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-gray-500 text-white" />
+        <button onclick="exportCSV()"
+          class="px-4 py-2 text-sm border border-gray-600 rounded-lg hover:border-gray-400 transition-colors flex-shrink-0">
+          Export CSV
+        </button>
       </div>
       <div id="users-list"></div>
+    </div>
+  </div>
+
+  <!-- Photo Modal -->
+  <div id="photo-modal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50 px-6" onclick="closePhotoModal()">
+    <div class="relative max-w-sm w-full" onclick="event.stopPropagation()">
+      <img id="photo-modal-img" src="" class="w-full rounded-2xl object-cover shadow-2xl" />
+      <div id="photo-modal-info" class="mt-3 text-center"></div>
+      <button onclick="closePhotoModal()" class="absolute -top-3 -right-3 w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center text-gray-400 hover:text-white text-lg">×</button>
     </div>
   </div>
 
@@ -213,25 +226,36 @@
     }
 
     async function loadUsers() {
-      const { data: users } = await getSupabase()
-        .from('profiles')
-        .select('id, username, photo_url, elo_score, vote_count, created_at')
-        .order('created_at', { ascending: false })
+      const sb = getSupabase()
+      const [{ data: users }, { data: emails }] = await Promise.all([
+        sb.from('profiles')
+          .select('id, username, photo_url, elo_score, vote_count, bio, created_at')
+          .order('created_at', { ascending: false }),
+        sb.from('profile_emails').select('user_id, email'),
+      ])
 
-      allUsers = users ?? []
+      const emailMap = Object.fromEntries((emails ?? []).map(e => [e.user_id, e.email]))
+      allUsers = (users ?? []).map(u => ({ ...u, email: emailMap[u.id] ?? '' }))
       renderUsers(allUsers)
     }
 
     function renderUsers(users) {
+      if (!users.length) {
+        document.getElementById('users-list').innerHTML = '<p class="text-gray-600 text-sm">No users found.</p>'
+        return
+      }
       document.getElementById('users-list').innerHTML = users.map(u => `
-        <div class="flex items-center gap-4 px-4 py-3 bg-gray-900 rounded-xl mb-2">
-          <img src="${escapeHtml(u.photo_url)}" class="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+        <div class="flex items-start gap-4 px-4 py-4 bg-gray-900 rounded-xl mb-2">
+          <img src="${escapeHtml(u.photo_url)}" onclick="openPhotoModal('${escapeHtml(u.photo_url)}','${escapeHtml(u.username)}','${escapeHtml(u.email)}')"
+            class="w-14 h-14 rounded-xl object-cover flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity ring-1 ring-gray-700" />
           <div class="flex-1 min-w-0">
-            <p class="font-semibold truncate">${escapeHtml(u.username)}</p>
-            <p class="text-xs text-gray-500">ELO ${u.elo_score} · ${u.vote_count} votes · joined ${new Date(u.created_at).toLocaleDateString()}</p>
+            <p class="font-semibold">${escapeHtml(u.username)}</p>
+            <p class="text-xs text-blue-400 mt-0.5 select-all">${escapeHtml(u.email || '—')}</p>
+            ${u.bio ? `<p class="text-xs text-gray-400 mt-1 line-clamp-2">${escapeHtml(u.bio)}</p>` : ''}
+            <p class="text-xs text-gray-600 mt-1">ELO ${u.elo_score} · ${u.vote_count} votes · joined ${new Date(u.created_at).toLocaleDateString()}</p>
           </div>
           <button onclick="promptDelete('${u.id}', '${escapeHtml(u.username)}')"
-            class="px-3 py-1 text-xs border border-red-900 rounded-lg hover:bg-red-900 text-red-400 transition-colors flex-shrink-0">
+            class="px-3 py-1 text-xs border border-red-900 rounded-lg hover:bg-red-900 text-red-400 transition-colors flex-shrink-0 mt-1">
             Delete
           </button>
         </div>
@@ -240,7 +264,36 @@
 
     function filterUsers() {
       const q = document.getElementById('user-search').value.toLowerCase()
-      renderUsers(allUsers.filter(u => u.username.toLowerCase().includes(q)))
+      renderUsers(allUsers.filter(u =>
+        u.username.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+      ))
+    }
+
+    function openPhotoModal(url, username, email) {
+      document.getElementById('photo-modal-img').src = url
+      document.getElementById('photo-modal-info').innerHTML = `
+        <p class="font-semibold text-white">${escapeHtml(username)}</p>
+        <p class="text-xs text-blue-400 mt-1">${escapeHtml(email)}</p>
+      `
+      document.getElementById('photo-modal').classList.remove('hidden')
+    }
+
+    function closePhotoModal() {
+      document.getElementById('photo-modal').classList.add('hidden')
+    }
+
+    function exportCSV() {
+      const rows = [['Username', 'Email', 'ELO', 'Votes', 'Bio', 'Joined']]
+      allUsers.forEach(u => rows.push([
+        u.username, u.email, u.elo_score, u.vote_count,
+        (u.bio || '').replace(/"/g, '""'),
+        new Date(u.created_at).toLocaleDateString()
+      ]))
+      const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n')
+      const a = document.createElement('a')
+      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv)
+      a.download = `maroon-match-users-${new Date().toISOString().slice(0,10)}.csv`
+      a.click()
     }
 
     async function resolveReport(reportId) {

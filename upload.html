@@ -327,6 +327,10 @@
 
       if (profileError) { showErr('Profile save failed: ' + profileError.message); resetBtn(btn); return }
 
+      // Store email for admin visibility
+      await getSupabase().from('profile_emails')
+        .upsert({ user_id: user.id, email: user.email }, { onConflict: 'user_id' })
+
       setProgress('Saving categories…', 75)
 
       // Save categories
